@@ -1,0 +1,8 @@
+node_modules/
+dist/
+assets-src/
+*.blend
+*.blend1
+*.zip
+__pycache__/
+.impeccable/hook.cache.json

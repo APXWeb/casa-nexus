@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-05T04:04:22.079Z",
+        "reason": "Claude triage: the type scale lives in src/styles/main.css, which is imported through JS and so not visible to the static scan of index.html. That scale is display clamp(44px, 7.4vw, 112px), h2 clamp(30px, 3.6vw, 52px), h3 22-28px, body 16px, so each step is 1.3x or more."
+      }
+    ]
+  }
+}

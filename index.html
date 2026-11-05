@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="CASA NEXUS — residência conceitual contemporânea apresentada em 3D em tempo real. Projeto conceitual da APX Web." />
+    <meta name="theme-color" content="#121314" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%23121314%22/%3E%3Cpath d=%22M7 22h18M9 22V13h10v9M15 13V9h8v13%22 stroke=%22%23efebe4%22 stroke-width=%221.6%22 fill=%22none%22/%3E%3C/svg%3E" />
+    <title>CASA NEXUS — Arquitetura em cada detalhe</title>
+  </head>
+  <body>
+    <canvas id="gl" aria-hidden="true"></canvas>
+
+    <!-- carregamento com progresso real -->
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-in">
+        <p class="eyebrow">Projeto conceitual · APX Web</p>
+        <h1 class="loader-title">CASA <em>Nexus</em></h1>
+        <div class="bar" aria-hidden="true"><span></span></div>
+        <p class="loader-step"><span class="pct">0%</span> · <span class="step">preparando</span></p>
+        <div class="loader-error" hidden>
+          <p>Não foi possível carregar a cena 3D.</p>
+          <button type="button" class="btn" data-retry>Tentar novamente</button>
+          <a class="link" href="#sem-3d">Ver a apresentação em imagens</a>
+        </div>
+      </div>
+    </div>
+
+    <header class="hdr">
+      <a class="mark" href="#abertura" aria-label="CASA NEXUS, voltar ao início">CASA <em>Nexus</em></a>
+      <nav class="nav" aria-label="Seções">
+        <a href="#construcao">Construção</a>
+        <a href="#tour">Tour</a>
+        <a href="#explorar">Explorar</a>
+        <a href="#detalhes">Detalhes</a>
+        <a href="#personalizar">Personalizar</a>
+        <a href="#planta">Planta</a>
+      </nav>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Horário do dia">
+          <button type="button" data-mood="day" aria-pressed="true">Dia</button>
+          <button type="button" data-mood="sunset" aria-pressed="false">Pôr do sol</button>
+          <button type="button" data-mood="night" aria-pressed="false">Noite</button>
+        </div>
+        <button type="button" class="q-btn" aria-haspopup="true" aria-expanded="false" aria-controls="q-menu">Qualidade</button>
+        <div id="q-menu" class="q-menu" hidden>
+          <p class="q-title">Qualidade de renderização</p>
+          <button type="button" data-q="high">Alta qualidade</button>
+          <button type="button" data-q="balanced">Equilibrado</button>
+          <button type="button" data-q="performance">Desempenho</button>
+          <p class="q-fps" aria-live="off"></p>
+        </div>
+      </div>
+    </header>
+
+    <main id="story">
+      <!-- 1. abertura -->
+      <section id="abertura" class="scene" data-scene="intro" style="--len: 220vh">
+        <div class="pin">
+          <div class="hero">
+            <p class="eyebrow">Residência conceitual · arquitetura brasileira contemporânea</p>
+            <h1 class="display">CASA NEXUS<br /><em>Arquitetura em cada detalhe.</em></h1>
+            <p class="lede">Pedra, madeira e vidro em dois pavimentos voltados para o jardim. Uma casa inteira construída em 3D, para ver se erguer, atravessar e explorar.</p>
+            <a class="btn btn-primary" href="#residencia" data-start>Iniciar experiência</a>
+          </div>
+          <p class="scroll-hint" aria-hidden="true">Role para se aproximar</p>
+        </div>
+      </section>
+
+      <!-- 2. apresentação -->
+      <section id="residencia" class="scene" data-scene="facade" style="--len: 260vh">
+        <div class="pin">
+          <article class="panel panel-left" data-at="0.08">
+            <p class="eyebrow">A residência</p>
+            <h2 class="h2">Um volume de madeira <em>pousado sobre a pedra.</em></h2>
+            <p>O térreo é aberto, transparente e ancorado por um plano de pedra natural. Acima, o volume dos dormitórios avança 1,2 m sobre a entrada e se protege com brises de madeira.</p>
+          </article>
+          <article class="panel panel-right" data-at="0.55">
+            <dl class="facts" id="facts-intro"></dl>
+          </article>
+        </div>
+      </section>
+
+      <!-- 3. construção -->
+      <section id="construcao" class="scene" data-scene="build" style="--len: 820vh">
+        <div class="pin">
+          <div class="build-ui">
+            <p class="eyebrow">Construção</p>
+            <h2 class="h2 build-title">Da planta ao <em>projeto finalizado.</em></h2>
+            <ol class="steps" aria-label="Etapas da obra"></ol>
+          </div>
+          <div class="caption" aria-live="polite"><strong class="cap-t"></strong><span class="cap-d"></span></div>
+          <button type="button" class="skip" data-skip="#visao">Pular construção</button>
+        </div>
+      </section>
+
+      <!-- 4. visão completa -->
+      <section id="visao" class="scene" data-scene="overview" style="--len: 160vh">
+        <div class="pin">
+          <article class="panel panel-right" data-at="0.2">
+            <p class="eyebrow">Visão arquitetônica</p>
+            <h2 class="h2">Tudo voltado <em>para o norte.</em></h2>
+            <p>No hemisfério sul, o sol chega pelo norte. Por isso estar, jantar, cozinha e suítes se abrem para o jardim e a piscina, protegidos pelas marquises.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- 5. desmontagem -->
+      <section id="desmontagem" class="scene" data-scene="explode" style="--len: 360vh">
+        <div class="pin">
+          <article class="panel panel-left" data-at="0.05">
+            <p class="eyebrow">Desmontagem técnica</p>
+            <h2 class="h2">A casa em <em>camadas.</em></h2>
+            <p class="explode-cap" aria-live="polite">A cobertura se eleva.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- 6. tour -->
+      <section id="tour" class="scene" data-scene="tour" style="--len: 1500vh">
+        <div class="pin">
+          <div class="tour-ui">
+            <p class="eyebrow">Tour virtual</p>
+            <p class="room" aria-live="polite"></p>
+            <div class="tour-bar" aria-hidden="true"><span></span></div>
+          </div>
+          <button type="button" class="skip" data-skip="#explorar">Pular tour</button>
+        </div>
+      </section>
+
+      <!-- 7. exploração -->
+      <section id="explorar" class="scene scene-interactive" data-scene="explore" style="--len: 170vh">
+        <div class="pin">
+          <aside class="explore-ui" aria-label="Exploração dos ambientes">
+            <p class="eyebrow">Exploração livre</p>
+            <h2 class="h3">Escolha um ambiente</h2>
+            <div class="floor-tabs" role="tablist">
+              <button type="button" role="tab" aria-selected="true" data-floor="0">Térreo</button>
+              <button type="button" role="tab" aria-selected="false" data-floor="1">Superior</button>
+            </div>
+            <svg class="plan" viewBox="0 0 100 60" role="img" aria-label="Planta interativa"></svg>
+            <p class="here">Você está em: <strong></strong></p>
+            <div class="explore-nav">
+              <button type="button" data-ex="prev" aria-label="Ambiente anterior">‹ Anterior</button>
+              <button type="button" data-ex="overview">Visão geral</button>
+              <button type="button" data-ex="next" aria-label="Próximo ambiente">Próximo ›</button>
+            </div>
+            <p class="hint">Arraste para olhar ao redor. Use W A S D ou as setas para caminhar.</p>
+          </aside>
+          <div class="touch-pad" aria-hidden="true">
+            <button type="button" data-move="f">▲</button>
+            <button type="button" data-move="b">▼</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. detalhes -->
+      <section id="detalhes" class="scene scene-interactive" data-scene="details" style="--len: 170vh">
+        <div class="pin">
+          <aside class="details-ui">
+            <p class="eyebrow">Detalhes e materiais</p>
+            <h2 class="h3">Toque em um marcador</h2>
+            <ul class="detail-list"></ul>
+            <div class="detail-card" hidden>
+              <h3 class="dc-t"></h3>
+              <p class="dc-d"></p>
+              <button type="button" class="link" data-detail-back>Voltar à visão anterior</button>
+            </div>
+          </aside>
+          <div class="markers" aria-hidden="false"></div>
+        </div>
+      </section>
+
+      <!-- 9. personalização -->
+      <section id="personalizar" class="scene scene-interactive" data-scene="custom" style="--len: 170vh">
+        <div class="pin">
+          <aside class="custom-ui" aria-label="Personalização">
+            <p class="eyebrow">Personalização</p>
+            <h2 class="h3">Ajuste a casa <em>em tempo real</em></h2>
+            <div class="custom-groups"></div>
+            <div class="custom-group">
+              <p class="cg-label">Horário</p>
+              <div class="seg seg-wide" role="group" aria-label="Horário">
+                <button type="button" data-mood="day" aria-pressed="true">Dia</button>
+                <button type="button" data-mood="sunset" aria-pressed="false">Pôr do sol</button>
+                <button type="button" data-mood="night" aria-pressed="false">Noite</button>
+              </div>
+            </div>
+            <div class="custom-group">
+              <p class="cg-label">Enquadramento</p>
+              <div class="seg seg-wide" role="group" aria-label="Enquadramento">
+                <button type="button" data-cview="fachada" aria-pressed="true">Fachada</button>
+                <button type="button" data-cview="jardim" aria-pressed="false">Jardim</button>
+                <button type="button" data-cview="sala" aria-pressed="false">Sala</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 10. planta e ficha -->
+      <section id="planta" class="sheet" data-scene="sheet">
+        <div class="sheet-in">
+          <header class="sheet-hd">
+            <p class="eyebrow">Planta e ficha arquitetônica</p>
+            <h2 class="h2">Dois pavimentos, <em>uma só continuidade.</em></h2>
+          </header>
+          <div class="sheet-grid">
+            <figure class="sheet-plan">
+              <svg class="plan plan-0" role="img" aria-label="Planta do térreo"></svg>
+              <figcaption>Térreo</figcaption>
+            </figure>
+            <figure class="sheet-plan">
+              <svg class="plan plan-1" role="img" aria-label="Planta do pavimento superior"></svg>
+              <figcaption>Pavimento superior</figcaption>
+            </figure>
+            <dl class="facts facts-sheet" id="facts-sheet"></dl>
+            <div class="sheet-text">
+              <h3 class="h3">Materiais</h3>
+              <p>Pedra natural em filetes, concreto aparente claro, madeira em brises, forros e marcenaria, alumínio preto nas esquadrias, pedra clara nos pisos sociais, madeira nos dormitórios e terrazzo nos banhos.</p>
+              <h3 class="h3">Características</h3>
+              <p>Térreo integrado e transparente, volume superior em balanço com brises, escada escultórica em balanço, varanda contínua sobre a marquise, telhado verde sobre a sala e raia paralela à casa.</p>
+              <p class="note">As medidas vêm do próprio modelo 3D. A residência é conceitual: não representa um imóvel à venda nem especificações de fornecedores.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11. apresentação final -->
+      <section id="final" class="scene" data-scene="finale" style="--len: 240vh">
+        <div class="pin">
+          <div class="finale">
+            <h2 class="display display-sm">CASA NEXUS<br /><em>Uma casa para ser descoberta.</em></h2>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- alternativa sem 3D (aparelhos sem WebGL) -->
+    <section id="sem-3d" class="nogl" hidden>
+      <div class="nogl-in">
+        <p class="eyebrow">Apresentação em imagens</p>
+        <h2 class="h2">Seu aparelho não executa a experiência 3D.</h2>
+        <p>Abaixo estão capturas da mesma cena renderizada em tempo real. Para explorar a casa em 3D, abra esta página em um computador ou celular recente com aceleração gráfica.</p>
+        <div class="nogl-grid"></div>
+      </div>
+    </section>
+
+    <footer class="ftr">
+      <div class="ftr-in">
+        <p class="ftr-mark">CASA <em>Nexus</em></p>
+        <p>Projeto conceitual desenvolvido pela <a href="https://apxweb.github.io/apex-web/" rel="noopener">APX Web</a> para demonstrar visualização arquitetônica em tempo real. Residência fictícia, sem endereço nem venda.</p>
+        <p class="credits">Modelagem, iluminação pré-calculada e experiência: APX Web. Texturas, céus, vegetação e alguns objetos: <a href="https://polyhaven.com" rel="noopener">Poly Haven</a> (CC0). Tipografia: Newsreader e Inter Tight (SIL OFL). <a href="./CREDITOS.md">Créditos completos</a>.</p>
+      </div>
+    </footer>
+
+    <div class="fps-badge" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

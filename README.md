@@ -10,7 +10,7 @@ npm run dev        # http://localhost:5290  (site)  ·  /gate.html (prova de qua
 npm run build      # dist/ (base relativa)
 ```
 
-Parâmetros úteis: `?q=high|balanced|performance` força o perfil; `?fps` mostra o medidor; no gate, `?lmdebug=1..4` exibe o lightmap.
+Parâmetros úteis: `?q=ultra|high|balanced|performance` força o perfil; `?fps` mostra o medidor; no gate, `?lmdebug=1..4` exibe o lightmap.
 
 ## Pipeline
 
@@ -27,7 +27,7 @@ Parâmetros úteis: `?q=high|balanced|performance` força o perfil; `?fps` mostr
 
 ```bash
 B=/c/Users/ppsm2/tools/blender-5.2.3-windows-x64/blender.exe
-$B -b --factory-startup --python blender/main.py -- --bake all      # ~25 min na RTX 4070 Ti
+$B -b --factory-startup --python blender/main.py -- --bake all      # LM_PX=4096: ~41 min na RTX 4070 Ti (2048: ~15 min)
 $B -b --factory-startup --python blender/impostor.py -- jacaranda_tree - 8 256 jacaranda 0.5
 $B -b --factory-startup --python blender/tree_lod.py -- assets-src/models/jacaranda_tree/jacaranda_tree_1k.gltf assets-src/export/tree_jacaranda.glb 220000 26000
 $B -b --factory-startup --python blender/tree_lod.py -- assets-src/models/island_tree_02/island_tree_02_1k.gltf assets-src/export/tree_island.glb 120000 14000
@@ -46,6 +46,19 @@ Sem WebGL, a página mostra capturas reais da cena (`public/img/`). Com `prefers
 
 ## Desempenho medido
 
+## Perfis de qualidade
+
+O site é pensado para computador. Em placas fortes (RTX 3060 para cima, Radeon RX 7000/9000) abre no **Ultra**; se o FPS cair de forma persistente, desce sozinho para Alta → Equilibrado → Desempenho. O menu Qualidade troca o perfil manualmente.
+
+| Perfil | Resolução interna | MSAA | Sombra | Lightmaps | Árvores do lote | Mata |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ultra | 1,5× a tela (teto de ~8,3 MP) | 8× | 8192 | 4096 | jacarandás, árvores e cercas vivas em malha 3D | 1,5× |
+| Alta | até 2× (telas de alta densidade) | 4× | 4096 | 2048 | jacarandás e árvores em malha 3D | 1× |
+| Equilibrado | até 1,5× | 4× | 2048 | 2048 | impostores | 0,7× |
+| Desempenho | 0,8× | SMAA | 1024 | 1024 | impostores | 0,35× |
+
+## Desempenho medido (primeira medição)
+
 RTX 4070 Ti, Ryzen 9 7950X3D, Chrome (ANGLE/D3D11), perfil Alta qualidade. O monitor de 172–175 Hz é o teto:
 
 | Cena | FPS | média | p95 | pior | draw calls |
@@ -60,9 +73,11 @@ RTX 4070 Ti, Ryzen 9 7950X3D, Chrome (ANGLE/D3D11), perfil Alta qualidade. O mon
 
 No perfil Alta qualidade, as 7 árvores grandes do lote são malhas 3D reais (4 × 148 mil + 3 × 284 mil ≈ 1,44 milhão de triângulos), e a mata ao redor continua em impostores. Nos perfis Equilibrado e Desempenho, todas as árvores são impostores.
 
-Remedição em 05/11/2026, com o navegador limitado a 60 Hz pela configuração de monitores da máquina: as rolagens de construção, desmontagem e tour ficaram em 60,0 fps, p95 16,8 ms e pior quadro 16,8 ms, sem quadros perdidos, já com as árvores em malha real (≈ 5,5 milhões de triângulos por quadro, contando a passada de sombra).
+Remedição em 05/11/2026 (perfil Alta), com o navegador limitado a 60 Hz pela configuração de monitores da máquina: as rolagens de construção, desmontagem e tour ficaram em 60,0 fps, p95 16,8 ms e pior quadro 16,8 ms, sem quadros perdidos, já com as árvores em malha real (≈ 5,5 milhões de triângulos por quadro, contando a passada de sombra).
 
-Carregamento até a cena pronta: ~1 s com cache e ~5 s na primeira visita local. Celular: só foi testado layout em emulação (Pixel 7, perfil Desempenho); o FPS em GPU móvel real **não foi medido**.
+Perfil Ultra, mesmo navegador limitado a 60 Hz, lightmaps 4096 e cercas vivas em malha (62 × 48 mil triângulos): construção, desmontagem e tour em 60,0 fps, p95 ≤ 16,8 ms e pior quadro 16,8 ms, tanto em 1600×900 (renderizado em 2400×1350) quanto em 2560×1440 (renderizado em ~3840×2160). Até 11,4 milhões de triângulos por quadro, contando a passada de sombra. Com o teto de 60 Hz, a folga acima disso não foi medida.
+
+Carregamento até a cena pronta: ~1 s com cache e ~5 s na primeira visita local. O site é pensado para computador: no celular só o layout foi testado, em emulação (Pixel 7, perfil Desempenho), e o FPS em GPU móvel não foi medido.
 
 ## Recursos e licenças
 

@@ -83,6 +83,7 @@ export async function createStage(canvas, { onProgress, onStep } = {}) {
   }, lot, Math.max(0.6, R.p.veg))
   if (R.p.treeMesh) {
     const prog = {}
+    const files = { jacaranda: 'tree_jacaranda', island: 'tree_island', ...(R.p.hedgeMesh ? { searsia: 'tree_searsia' } : {}) }
     await veg.loadRealTrees({
       loadAsync: (url) =>
         loader.loadAsync(url, (e) => {
@@ -92,7 +93,7 @@ export async function createStage(canvas, { onProgress, onStep } = {}) {
           bytes.trees = [v.reduce((a, x) => a + x[0], 0), v.reduce((a, x) => a + x[1], 0)]
           report('paisagismo')
         }),
-    })
+    }, files)
     bytes.trees = [1, 1]
   }
   bytes.veg = [1, 1]

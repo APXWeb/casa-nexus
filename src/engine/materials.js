@@ -16,8 +16,8 @@ export const shared = {
   uDebug: { value: 0 }, // 1 = mostra a oclusão do lightmap; 2 = luz noturna // rebatimento difuso do sol (aprox. de GI), modulado pela oclusão
 }
 
-// ajustes de tom posteriores ao bake (o lightmap não depende do albedo)
-const TINT = { M_deck: [0.84, 0.8, 0.76] }
+// ajustes de tom posteriores ao bake (o lightmap não depende do albedo); vazio desde a reexportação
+const TINT = {}
 
 const texCache = new Map()
 let texTier = 1024

@@ -23,6 +23,8 @@ const GradeShader = {
 }
 
 export const PROFILES = {
+  // Ultra: superamostragem 1,5× (limitada a ~8,3 MP, para monitores 4K), MSAA 8×, sombra 8192 e lightmaps 4096
+  ultra: { label: 'Ultra', dpr: 3, ss: 1.5, maxPixels: 8.3e6, scale: 1, msaa: 8, smaa: false, shadow: 8192, tex: 2048, lm: 4096, bloom: true, bg: 8192, veg: 1.5, shadowRadius: 2.5, treeMesh: true, hedgeMesh: true },
   high: { label: 'Alta qualidade', dpr: 2, scale: 1, msaa: 4, smaa: false, shadow: 4096, tex: 2048, lm: 2048, bloom: true, bg: 8192, veg: 1, shadowRadius: 2.5, treeMesh: true },
   balanced: { label: 'Equilibrado', dpr: 1.5, scale: 1, msaa: 4, smaa: false, shadow: 2048, tex: 1024, lm: 2048, bloom: false, bg: 4096, veg: 0.7, shadowRadius: 2 },
   performance: { label: 'Desempenho', dpr: 1, scale: 0.8, msaa: 0, smaa: true, shadow: 1024, tex: 512, lm: 1024, bloom: false, bg: 2048, veg: 0.35, shadowRadius: 1.5 },
@@ -40,6 +42,7 @@ export function detectProfile() {
     const ext = gl.getExtension('WEBGL_debug_renderer_info')
     gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''
   } catch {}
+  if (/RTX (30[6-9]0|40[6-9]0|50[6-9]0)|RX [79][0-9]{3}|Apple M[1-9] (Max|Ultra)/i.test(gpu)) return 'ultra'
   if (/RTX|Radeon RX [67]|RX 7|Apple M[1-9] (Pro|Max|Ultra)|Arc A7/i.test(gpu)) return 'high'
   if (/Intel|UHD|Iris|Mali|Adreno|PowerVR/i.test(gpu)) return 'performance'
   return 'balanced'
@@ -75,7 +78,7 @@ export class Renderer {
     this.composer?.dispose()
     const size = new THREE.Vector2()
     this.renderer.getSize(size)
-    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: p.msaa })
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: Math.min(p.msaa, this.renderer.capabilities.maxSamples || 4) })
     this.composer = new EffectComposer(this.renderer, rt)
     this.renderPass = new RenderPass(this.scene, this.camera)
     this.composer.addPass(this.renderPass)
@@ -101,7 +104,9 @@ export class Renderer {
   resize() {
     const w = innerWidth,
       h = innerHeight
-    const dpr = Math.min(devicePixelRatio || 1, this.p.dpr) * this.p.scale
+    let dpr = Math.min((devicePixelRatio || 1) * (this.p.ss || 1), this.p.dpr) * this.p.scale
+    if (this.p.maxPixels) dpr = Math.min(dpr, Math.sqrt(this.p.maxPixels / (w * h)))
+    dpr = Math.max(dpr, Math.min(1, devicePixelRatio || 1))
     this.renderer.setPixelRatio(dpr)
     this.renderer.setSize(w, h, false)
     this.composer?.setPixelRatio(dpr)

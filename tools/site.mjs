@@ -1,5 +1,5 @@
 // Capturas e medição do site completo.
-// uso: node tools/site.mjs [url] [saida] [--q high] [--size 1600x900] [--shots "sel:frac,..."] [--perf] [--mobile] [--mood day|sunset|night]
+// uso: node tools/site.mjs [url] [saida] [--q high] [--size 1600x900] [--shots "sel:frac,..."] [--perf] [--mobile] [--mood day|sunset|night] [--clean]
 import { chromium, devices } from '@playwright/test'
 import fs from 'node:fs'
 
@@ -31,6 +31,8 @@ try {
   process.exit(1)
 }
 console.log('pronto em', Date.now() - t0, 'ms', JSON.stringify(await page.evaluate(() => window.__nx.info())))
+// --clean: esconde toda a interface (capturas para as imagens de reserva sem WebGL)
+if (args.includes('--clean')) await page.addStyleTag({ content: 'body *:not(canvas){visibility:hidden !important} canvas{visibility:visible !important}' })
 const mood = opt('--mood', null)
 if (mood) {
   await page.evaluate((m) => window.__nx.setMood(m), mood)

@@ -150,7 +150,13 @@ export class Vegetation {
         const sp = this.species[k]
         const items = sp?.items.filter((it) => it.lot)
         if (!items?.length) return
-        const gltf = await loader.loadAsync(BASE + `models/${file}.glb`)
+        let gltf
+        try {
+          gltf = await loader.loadAsync(BASE + `models/${file}.glb`)
+        } catch (e) {
+          console.warn('árvore em malha indisponível, mantendo impostor:', file, e?.message)
+          return
+        }
         gltf.scene.updateMatrixWorld(true)
         // normaliza: centro no chão, altura igual à do impostor. A geometria vem quantizada (meshopt),
         // então não é alterada: a normalização entra na matriz de cada instância.

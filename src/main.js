@@ -572,7 +572,7 @@ async function boot() {
       if (st && st.avg > 26 && R.profileName !== 'performance') {
         slowT += dt
         if (slowT > 3) {
-          R.setProfile(R.profileName === 'high' ? 'balanced' : 'performance')
+          R.setProfile({ ultra: 'high', high: 'balanced' }[R.profileName] || 'performance')
           R.frames.length = 0
           slowT = 0
           markQ()

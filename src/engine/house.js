@@ -34,7 +34,7 @@ export class House {
     const tl = new THREE.TextureLoader()
     await Promise.all(
       man.atlases.map(async (a) => {
-        const t = await tl.loadAsync(BASE + `lm/${a.name}${px <= 1024 ? '_1k' : ''}.webp`)
+        const t = await tl.loadAsync(BASE + `lm/${a.name}${px >= 4096 && a.has4k ? '_4k' : px <= 1024 ? '_1k' : ''}.webp`)
         t.flipY = false
         t.colorSpace = THREE.NoColorSpace
         t.generateMipmaps = true

@@ -3,7 +3,8 @@
 Folhas: mantém uma fração das ilhas (cartões de folha) e amplia cada uma em torno do próprio centro,
 para preservar a cobertura da copa. Tronco e galhos: decimação por colapso.
 
-uso: blender -b --factory-startup --python blender/tree_lod.py -- <gltf> <saida.glb> <tris_folhas> <tris_madeira>
+uso: blender -b --factory-startup --python blender/tree_lod.py -- <gltf> <saida.glb> <tris_folhas> <tris_madeira> [objeto]
+(objeto: filtra uma variante quando o arquivo traz várias lado a lado, ex.: searsia_lucida_a)
 """
 import bpy, bmesh, sys, random
 from mathutils import Vector
@@ -14,7 +15,14 @@ random.seed(7)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
+only = argv[4] if len(argv) > 4 else None
+if only:
+    for o in [o for o in bpy.data.objects if o.type == 'MESH' and only not in o.name]:
+        bpy.data.objects.remove(o, do_unlink=True)
 obj = [o for o in bpy.data.objects if o.type == 'MESH'][0]
+mw = obj.matrix_world.copy()
+obj.parent = None
+obj.matrix_world = mw
 bpy.context.view_layer.objects.active = obj
 obj.select_set(True)
 bpy.ops.object.mode_set(mode='EDIT')

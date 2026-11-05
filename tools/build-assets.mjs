@@ -66,12 +66,19 @@ if (want('lm')) {
   for (const a of man.atlases) {
     const f = path.join(dir, `${a.name}.png`)
     const o = path.join(out, `${a.name}.webp`)
-    await sharp(f).webp({ quality: 92, alphaQuality: 100, smartSubsample: true, effort: 6 }).toFile(o)
+    const { width } = await sharp(f).metadata()
+    // bake em 4096: versão _4k (perfil Ultra) + 2048 (Alta/Equilibrado) + 1024 (Desempenho)
+    a.has4k = width >= 4096
+    if (a.has4k) {
+      await sharp(f).webp({ quality: 92, alphaQuality: 100, smartSubsample: true, effort: 6 }).toFile(path.join(out, `${a.name}_4k.webp`))
+      tot += await size(path.join(out, `${a.name}_4k.webp`))
+    }
+    await sharp(f).resize(2048, 2048, { kernel: 'lanczos3' }).webp({ quality: 92, alphaQuality: 100, smartSubsample: true, effort: 6 }).toFile(o)
     const o2 = path.join(out, `${a.name}_1k.webp`)
     await sharp(f).resize(1024, 1024, { kernel: 'lanczos3' }).webp({ quality: 92, alphaQuality: 100, effort: 6 }).toFile(o2)
     tot += await size(o)
   }
-  await fs.copyFile(path.join(dir, 'manifest.json'), path.join(out, 'manifest.json'))
+  await fs.writeFile(path.join(out, 'manifest.json'), JSON.stringify(man))
   report.lightmaps = (tot / 1e6).toFixed(1) + ' MB'
 }
 
@@ -102,7 +109,7 @@ if (want('glb')) {
   const cli = path.join(root, 'node_modules', '@gltf-transform', 'cli', 'bin', 'cli.js')
   const run = (...a) => execFileSync(process.execPath, [cli, ...a], { stdio: 'pipe' }).toString()
   await fs.mkdir(path.join(pub, 'models'), { recursive: true })
-  for (const name of ['arch', 'props', 'veg', 'tree_island', 'tree_jacaranda']) {
+  for (const name of ['arch', 'props', 'veg', 'tree_island', 'tree_jacaranda', 'tree_searsia']) {
     const inF = path.join(src, 'export', `${name}.glb`)
     const tmp = path.join(src, 'export', `${name}.tmp.glb`)
     const outF = path.join(pub, 'models', `${name}.glb`)

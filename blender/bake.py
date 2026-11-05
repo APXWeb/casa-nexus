@@ -92,7 +92,7 @@ def lightmap_uvs(objs, atlas_px, density):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.select_all(action='SELECT')
-    margin = 5.0 / atlas_px
+    margin = 5.0 / 2048  # mesma fração em qualquer resolução: o atlas reduzido (2k/1k) não sangra
     bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, rotate_method='CARDINAL', scale=True,
                             merge_overlap=False, margin_method='FRACTION', margin=margin, pin=False,
                             shape_method='CONCAVE')
@@ -372,7 +372,7 @@ def run(arch, atlas_spec='auto'):
                 set_emission(True)
                 for l in lights:
                     l.hide_render = False
-            do_bake(g, img, samples)
+            do_bake(g, img, samples, margin_px=max(12, size * 12 // 2048))
             restore_materials(g)
             raw = os.path.join(OUT, f'{name}_{passname}_raw.exr')
             img.filepath_raw = raw

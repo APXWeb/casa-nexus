@@ -6,3 +6,4 @@ assets-src/
 *.zip
 __pycache__/
 .impeccable/hook.cache.json
+audit/

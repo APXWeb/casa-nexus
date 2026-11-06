@@ -5,6 +5,7 @@ import { World } from '../engine/world.js'
 import { House, makeGLTFLoader } from '../engine/house.js'
 import { buildTerrain } from '../engine/terrain.js'
 import { Vegetation, plantMeshes } from '../engine/vegetation.js'
+import { createProbes } from '../engine/probes.js'
 import { shared, setTextureTier, waterMaterial, texturesPending } from '../engine/materials.js'
 
 const BASE = import.meta.env.BASE_URL + 'assets/'
@@ -115,6 +116,16 @@ export async function createStage(canvas, { onProgress, onStep } = {}) {
   // demais climas em segundo plano
   stage.moodsReady = world.loadMood('sunset', R.p.bg).then(() => world.loadMood('night', R.p.bg))
   house.syncLamps()
+  // sondas de reflexo internas: capturadas com a casa pronta e recapturadas a cada troca de clima (world.apply roda no fim da transição)
+  // (?probes=0 desliga, para comparação)
+  if (new URLSearchParams(location.search).get('probes') !== '0') {
+    stage.probes = createProbes({ renderer: R.renderer, scene: R.scene, house, plan, world, R, tile: R.p.lm >= 4096 ? 512 : 256 })
+    const apply = world.apply.bind(world)
+    world.apply = (name) => {
+      apply(name)
+      stage.probes.recapture()
+    }
+  }
   return stage
 }
 

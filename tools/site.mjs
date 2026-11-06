@@ -56,10 +56,11 @@ if (args.includes('--perf')) {
       await page.evaluate(([sel, f]) => window.__nx.scrollTo(sel, f), [sel, k / steps])
       await page.waitForTimeout(33)
     }
-    res[name] = await page.evaluate(() => window.__nx.stats(100000))
+    res[name] = await page.evaluate(() => ({ ...window.__nx.stats(100000), gpu: window.__nx.gpu?.() }))
   }
+  console.log('canvas', JSON.stringify(await page.evaluate(() => window.__nx.canvas?.())))
   for (const [k, s] of Object.entries(res))
-    console.log(k.padEnd(12), s ? `${s.fps.toFixed(1)} fps | média ${s.avg.toFixed(2)} ms | p95 ${s.p95.toFixed(2)} | pior ${s.worst.toFixed(1)} | calls ${s.calls} | tris ${s.tris}` : 'sem dados')
+    console.log(k.padEnd(12), s ? `${s.fps.toFixed(1)} fps | média ${s.avg.toFixed(2)} ms | p95 ${s.p95.toFixed(2)} | pior ${s.worst.toFixed(1)} | calls ${s.calls} | tris ${s.tris}` + (s.gpu ? ` | GPU média ${s.gpu.avg.toFixed(2)} ms p95 ${s.gpu.p95.toFixed(2)} pior ${s.gpu.worst.toFixed(1)} (n=${s.gpu.n})` : ' | GPU n/d') : 'sem dados')
 }
 const errs = logs.filter((l) => /error|warn/i.test(l))
 if (errs.length) console.log('console:', errs.slice(0, 12).join(String.fromCharCode(10)).slice(0, 3000))

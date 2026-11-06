@@ -32,7 +32,20 @@ async function size(p) {
 
 // ---------------------------------------------------------------- texturas PBR
 if (want('tex')) {
-  const ids = (await fs.readdir(path.join(src, 'tex'))).filter((d) => !d.startsWith('.'))
+  let ids = (await fs.readdir(path.join(src, 'tex'))).filter((d) => !d.startsWith('.'))
+  // publica só as texturas usadas: materiais do arch.glb (extras.tex) ou citadas no código (personalização).
+  // As fontes das variantes derivadas (tools/derive-tex.mjs) ficam de fora do site.
+  try {
+    const glb = await fs.readFile(path.join(src, 'export', 'arch.glb'))
+    const json = glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')
+    const code = (await Promise.all((await fs.readdir(path.join(root, 'src'), { recursive: true })).filter((f) => f.endsWith('.js')).map((f) => fs.readFile(path.join(root, 'src', f), 'utf8')))).join('\n')
+    const used = ids.filter((id) => json.includes(`"tex":"${id}"`) || code.includes(`'${id}'`))
+    console.log('texturas publicadas', used.length, 'de', ids.length, '— fora:', ids.filter((i) => !used.includes(i)).join(', '))
+    ids = used
+    for (const d of await fs.readdir(path.join(pub, 'tex')).catch(() => [])) if (!ids.includes(d)) await fs.rm(path.join(pub, 'tex', d), { recursive: true })
+  } catch (e) {
+    console.log('sem arch.glb para filtrar texturas:', e.message)
+  }
   let total = { high: 0, balanced: 0, performance: 0 }
   for (const id of ids) {
     const dir = path.join(src, 'tex', id)
@@ -63,20 +76,54 @@ if (want('lm')) {
   await fs.mkdir(out, { recursive: true })
   const man = JSON.parse(await fs.readFile(path.join(dir, 'manifest.json'), 'utf8'))
   let tot = 0
-  for (const a of man.atlases) {
-    const f = path.join(dir, `${a.name}.png`)
-    const o = path.join(out, `${a.name}.webp`)
-    const { width } = await sharp(f).metadata()
-    // bake em 4096: versão _4k (perfil Ultra) + 2048 (Alta/Equilibrado) + 1024 (Desempenho)
-    a.has4k = width >= 4096
-    if (a.has4k) {
-      await sharp(f).webp({ quality: 92, alphaQuality: 100, smartSubsample: true, effort: 6 }).toFile(path.join(out, `${a.name}_4k.webp`))
-      tot += await size(path.join(out, `${a.name}_4k.webp`))
+  // WebP "near-lossless": sem subamostragem de croma (o WebP com perda é sempre 4:2:0, o que sangrava cor entre
+  // ilhas do atlas e criava blocos nos gradientes escuros). Mapas de luz são suaves e comprimem bem assim.
+  // exact: preserva o RGB onde A = 0 (sem isso o WebP apaga a luz noturna onde a visibilidade do céu é zero).
+  // Redimensiona RGB e A separadamente: o sharp pré-multiplica o alfa, o que corrompe dados independentes.
+  const enc = { nearLossless: true, quality: 70, effort: 6, exact: true }
+  // Atenção: o sharp aplica o resize ANTES de removeAlpha/extractChannel no mesmo pipeline (com pré-multiplicação),
+  // por isso os canais são extraídos em buffers crus primeiro e só então redimensionados.
+  const scaled = async (f, px) => {
+    const { data: src4, info } = await sharp(f).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const n = info.width * info.height
+    const rgbIn = Buffer.alloc(n * 3)
+    const aIn = Buffer.alloc(n)
+    for (let i = 0; i < n; i++) {
+      rgbIn[i * 3] = src4[i * 4]
+      rgbIn[i * 3 + 1] = src4[i * 4 + 1]
+      rgbIn[i * 3 + 2] = src4[i * 4 + 2]
+      aIn[i] = src4[i * 4 + 3]
     }
-    await sharp(f).resize(2048, 2048, { kernel: 'lanczos3' }).webp({ quality: 92, alphaQuality: 100, smartSubsample: true, effort: 6 }).toFile(o)
-    const o2 = path.join(out, `${a.name}_1k.webp`)
-    await sharp(f).resize(1024, 1024, { kernel: 'lanczos3' }).webp({ quality: 92, alphaQuality: 100, effort: 6 }).toFile(o2)
-    tot += await size(o)
+    const raw = (b, c) => sharp(b, { raw: { width: info.width, height: info.height, channels: c } })
+    const rgb = await raw(rgbIn, 3).resize(px, px, { kernel: 'lanczos3' }).raw().toBuffer()
+    // um canal volta como 3 (b-w → srgb): lê com o passo real
+    const { data: al, info: ai } = await raw(aIn, 1).resize(px, px, { kernel: 'lanczos3' }).raw().toBuffer({ resolveWithObject: true })
+    const out = Buffer.alloc(px * px * 4)
+    for (let i = 0; i < px * px; i++) {
+      out[i * 4] = rgb[i * 3]
+      out[i * 4 + 1] = rgb[i * 3 + 1]
+      out[i * 4 + 2] = rgb[i * 3 + 2]
+      out[i * 4 + 3] = al[i * ai.channels]
+    }
+    return sharp(out, { raw: { width: px, height: px, channels: 4 } })
+  }
+  for (const a of man.atlases) {
+    for (const v of ['', ...(man.day || []).map((d) => '_' + d)]) {
+      const f = path.join(dir, `${a.name}${v}.png`)
+      if (!(await exists(f))) continue
+      const { width } = await sharp(f).metadata()
+      // bake em 4096: versão _4k (perfil Ultra) + 2048 (Alta/Equilibrado) + 1024 (Desempenho)
+      if (!v) a.has4k = width >= 4096
+      // GI diurna/poente: o site usa no máximo 2k (luz suave), então não gera _4k
+      if (width >= 4096 && !v) {
+        await sharp(f).webp(enc).toFile(path.join(out, `${a.name}${v}_4k.webp`))
+        tot += await size(path.join(out, `${a.name}${v}_4k.webp`))
+      }
+      const o = path.join(out, `${a.name}${v}.webp`)
+      await (width > 2048 ? await scaled(f, 2048) : sharp(f)).webp(enc).toFile(o)
+      await (await scaled(f, 1024)).webp(enc).toFile(path.join(out, `${a.name}${v}_1k.webp`))
+      tot += await size(o)
+    }
   }
   await fs.writeFile(path.join(out, 'manifest.json'), JSON.stringify(man))
   report.lightmaps = (tot / 1e6).toFixed(1) + ' MB'

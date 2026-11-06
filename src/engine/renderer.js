@@ -19,13 +19,18 @@ const GradeShader = {
       x = mix(x, x * x * (3.0 - 2.0 * x), 0.18);
       x += vec3(0.02, 0.0, -0.02) * warmth;
       vec2 d = vUv - 0.5; x *= 1.0 - vignette * dot(d, d) * 2.2;
+      // dithering triangular de ±1/255: elimina o banding do céu e dos interiores escuros em 8 bits
+      vec2 q = gl_FragCoord.xy;
+      float n1 = fract(sin(dot(q, vec2(12.9898, 78.233))) * 43758.5453);
+      float n2 = fract(sin(dot(q + 17.0, vec2(39.3468, 11.1351))) * 24634.6345);
+      x += (n1 + n2 - 1.0) / 255.0;
       gl_FragColor = vec4(x, c.a); }`,
 }
 
 export const PROFILES = {
   // Ultra: superamostragem 1,5× (limitada a ~8,3 MP, para monitores 4K), MSAA 8×, sombra 8192 e lightmaps 4096
-  ultra: { label: 'Ultra', dpr: 3, ss: 1.5, maxPixels: 8.3e6, scale: 1, msaa: 8, smaa: false, shadow: 8192, tex: 2048, lm: 4096, bloom: true, bg: 8192, veg: 1.5, shadowRadius: 2.5, treeMesh: true, hedgeMesh: true },
-  high: { label: 'Alta qualidade', dpr: 2, scale: 1, msaa: 4, smaa: false, shadow: 4096, tex: 2048, lm: 2048, bloom: true, bg: 8192, veg: 1, shadowRadius: 2.5, treeMesh: true },
+  ultra: { label: 'Ultra', dpr: 3, ss: 1.5, maxPixels: 8.3e6, scale: 1, msaa: 8, smaa: false, shadow: 8192, tex: 2048, lm: 4096, bloom: true, bg: 8192, veg: 1.5, shadowRadius: 2.5, treeMesh: true, hedgeMesh: true, grass: { density: 160, radius: 24 } },
+  high: { label: 'Alta qualidade', dpr: 2, scale: 1, msaa: 4, smaa: false, shadow: 4096, tex: 2048, lm: 2048, bloom: true, bg: 8192, veg: 1, shadowRadius: 2.5, treeMesh: true, grass: { density: 100, radius: 20 } },
   balanced: { label: 'Equilibrado', dpr: 1.5, scale: 1, msaa: 4, smaa: false, shadow: 2048, tex: 1024, lm: 2048, bloom: false, bg: 4096, veg: 0.7, shadowRadius: 2 },
   performance: { label: 'Desempenho', dpr: 1, scale: 0.8, msaa: 0, smaa: true, shadow: 1024, tex: 512, lm: 1024, bloom: false, bg: 2048, veg: 0.35, shadowRadius: 1.5 },
 }
@@ -96,6 +101,16 @@ export class Renderer {
   setProfile(name) {
     this.profileName = name
     this.p = PROFILES[name]
+    // sombra do sol acompanha o perfil (antes só o composer mudava)
+    this.scene.traverse((o) => {
+      if (o.isDirectionalLight && o.castShadow && o.shadow.mapSize.x !== this.p.shadow) {
+        o.shadow.mapSize.set(this.p.shadow, this.p.shadow)
+        o.shadow.radius = this.p.shadowRadius
+        o.shadow.map?.dispose()
+        o.shadow.map = null
+      }
+    })
+    this.shadowDirty = true
     this.build()
     this.listeners.forEach((f) => f('profile', name))
     this.invalidate(3)
@@ -106,7 +121,7 @@ export class Renderer {
       h = innerHeight
     let dpr = Math.min((devicePixelRatio || 1) * (this.p.ss || 1), this.p.dpr) * this.p.scale
     if (this.p.maxPixels) dpr = Math.min(dpr, Math.sqrt(this.p.maxPixels / (w * h)))
-    dpr = Math.max(dpr, Math.min(1, devicePixelRatio || 1))
+    dpr = Math.max(dpr, 0.5)
     this.renderer.setPixelRatio(dpr)
     this.renderer.setSize(w, h, false)
     this.composer?.setPixelRatio(dpr)
@@ -138,10 +153,49 @@ export class Renderer {
       this.shadowDirty = false
     }
     this.renderer.info.reset()
+    const q = this.gpuBegin()
     this.composer.render()
+    this.gpuEnd(q)
     this.lastInfo = { calls: this.renderer.info.render.calls, tris: this.renderer.info.render.triangles }
     this.dirty--
     return true
+  }
+
+  /** Tempo de GPU por quadro (EXT_disjoint_timer_query_webgl2): mede o custo real mesmo com o vsync limitando o rAF. */
+  gpuBegin() {
+    const gl = this.renderer.getContext()
+    if (this.tq === undefined) {
+      this.tq = gl.getExtension('EXT_disjoint_timer_query_webgl2')
+      this.tqPending = []
+      this.gpuMs = []
+    }
+    if (!this.tq || this.tqPending.length > 6) return null
+    const q = gl.createQuery()
+    gl.beginQuery(this.tq.TIME_ELAPSED_EXT, q)
+    return q
+  }
+
+  gpuEnd(q) {
+    const gl = this.renderer.getContext()
+    if (q) {
+      gl.endQuery(this.tq.TIME_ELAPSED_EXT)
+      this.tqPending.push(q)
+    }
+    if (!this.tq) return
+    const disjoint = gl.getParameter(this.tq.GPU_DISJOINT_EXT)
+    while (this.tqPending.length && gl.getQueryParameter(this.tqPending[0], gl.QUERY_RESULT_AVAILABLE)) {
+      const r = this.tqPending.shift()
+      if (!disjoint) this.gpuMs.push(gl.getQueryParameter(r, gl.QUERY_RESULT) / 1e6)
+      gl.deleteQuery(r)
+    }
+    if (this.gpuMs.length > 2000) this.gpuMs.splice(0, 1000)
+  }
+
+  gpuStats(n = 2000) {
+    const f = (this.gpuMs || []).slice(-n)
+    if (!f.length) return null
+    const s = [...f].sort((a, b) => a - b)
+    return { n: f.length, avg: f.reduce((a, b) => a + b, 0) / f.length, p50: s[Math.floor(s.length / 2)], p95: s[Math.floor(s.length * 0.95)], worst: s[s.length - 1] }
   }
 
   /** Estatísticas dos últimos N quadros renderizados em sequência. */

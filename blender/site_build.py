@@ -20,6 +20,34 @@ def veg(kind, x, y, s=1.0, r=None):
                     s=round(s, 2)))
 
 
+def deck_boards(xa, ya, xb, yb, mat, c, w=0.14, gap=0.006, z0=0.0, z1=0.03):
+    """Deck de réguas: cada régua com chanfro, emendas desencontradas e UV deslocado (veios não se repetem)."""
+    rnd = random.Random(31)
+    parts = [box('deck_base', xa + 0.02, ya + 0.02, z0 - 0.04, xb - 0.02, yb - 0.02, z0 + 0.004, FU.F['ink'], c)]
+    y = ya
+    row = 0
+    while y < yb - 0.02:
+        y2 = min(y + w, yb)
+        x = xa - rnd.uniform(0, 2.2) if row else xa
+        while x < xb:
+            L = rnd.uniform(2.4, 3.6)
+            a, b = max(x, xa), min(x + L, xb)
+            if b - a > 0.15:
+                dz = rnd.uniform(-0.0015, 0.0015)
+                o = box('dk', a + gap / 2, y + gap / 2, z0 + 0.004, b - gap / 2, y2 - gap / 2, z1 + dz, mat, c, bevel=0.003, seg=1)
+                lib.world_uv(o, offset=(rnd.uniform(0, 9), rnd.uniform(0, 9)))
+                o['uvok'] = 1
+                parts.append(o)
+            x += L
+        y = y2
+        row += 1
+    lib.world_uv(parts[0])
+    parts[0]['uvok'] = 1
+    d = join(parts, 'deck')
+    d['uvok'] = 1
+    return d
+
+
 def build_all(M):
     random.seed(7)
     F = FU.F
@@ -28,7 +56,8 @@ def build_all(M):
     sidewalk = mt('M_sidewalk', 'granite_tile_03', tile=1.6, tint=(0.8, 0.8, 0.8))
     lawn = mt('M_lawn', 'leafy_grass', tile=3.0, tint=(0.62, 0.78, 0.45), rough=1.0, kind='lawn')
     soil = mt('M_soil', 'forest_ground_04', tile=2.0, tint=(0.7, 0.65, 0.6))
-    wall_m = mt('M_wall_site', 'plastered_wall', tile=3.0, tint=(0.86, 0.85, 0.82), rough=0.9)
+    wall_m = mt('M_wall_site', 'wood_textured_concrete', tile=2.4, tint=(0.86, 0.85, 0.83), rough=0.88)
+    socle_m = mt('M_wall_socle', 'concrete_wall_008', tile=2.0, tint=(0.42, 0.42, 0.42), rough=0.9)
     c = coll('site')
     out = []
     S = dict(stage='landscape')
@@ -75,21 +104,16 @@ def build_all(M):
     out.append(tag(join(pl, 'pool_lights'), stage='lights', emissive=1, lm=0))
 
     # ---------- deck e pisos externos
-    out.append(tag(box('deck', x0 - 0.36, y1 + 0.36, -0.0, x1 + 0.36, 9.6, 0.03, M['deck'], c), stage='landscape', lm=2, room='deck'))
+    out.append(tag(deck_boards(x0 - 0.36, y1 + 0.36, x1 + 0.36, 9.6, M['deck'], c), stage='landscape', lm=2, room='deck'))
     out.append(tag(box('paving_pool_w', -3.0, 2.6 - 0.36, -0.0, x0 - 0.36, 9.6, 0.02, M['paving'], c), stage='landscape', lm=2))
     out.append(tag(box('paving_pool_s', -3.0, 2.6 - 0.36 - 0.0, -0.0, x1 + 0.36, 2.6 - 0.36 + 0.0001, 0.02, M['paving'], c),
                    stage='landscape', lm=2))
     # espreguiçadeiras sobre o deck
+    import upholstery as U
     for i, x in enumerate([1.5, 3.0, 8.0, 9.5]):
-        sb = [box('sbf', -0.36, -1.0, 0.0, 0.36, 1.0, 0.3, F['oak'], bevel=0.01),
-              rounded('sbc', -0.33, -0.97, 0.3, 0.33, 0.5, 0.38, 0.03, F['linen'], seg=3)]
-        bk = rounded('sbk', -0.33, 0.45, 0.3, 0.33, 1.05, 0.38, 0.03, F['linen'], seg=3)
-        bk.data.transform(Matrix.Translation((0, 0.45, 0.34)) @ Matrix.Rotation(math.radians(38), 4, 'X') @
-                          Matrix.Translation((0, -0.45, -0.34)))
-        sb.append(bk)
-        out.append(FU.place(sb, x, 8.45, 0.03, 0, f'espreguicadeira_{i}', c, room='deck', **S))
-    out.append(FU.place(FU.coffee_table_block(0.45, 0.45, 0.4, F['travertine']), 2.25, 8.9, 0.03, 0, 'mesinha_deck_a', c, **S))
-    out.append(FU.place(FU.coffee_table_block(0.45, 0.45, 0.4, F['travertine']), 8.75, 8.9, 0.03, 0, 'mesinha_deck_b', c, **S))
+        out.append(FU.place(U.lounger(F, seed=i), x, 8.45, 0.03, 0, f'espreguicadeira_{i}', c, room='deck', **S))
+    out.append(FU.ph('side_table_01', 2.25, 8.9, 0.03, 0, c=c, name='mesinha_deck_a', **S))
+    out.append(FU.ph('side_table_01', 8.75, 8.9, 0.03, 0, c=c, name='mesinha_deck_b', **S))
 
     # ---------- área de convivência com lareira externa (jardim norte)
     cx, cy = -8.0, 14.5
@@ -148,13 +172,31 @@ def build_all(M):
     beds = [(-4.6, -18.0, -3.65, -16.2), (0.65, -18.0, 11.9, -16.2), (12.2, -16.0, 13.6, -3.0), (-15.6, -16.0, -12.25, -2.0)]
     pb = [box('bed', a, b, -0.08, cc_, dd, -0.01, M['gravel'], c) for (a, b, cc_, dd) in beds]
     out.append(tag(join(pb, 'garden_beds'), stage='landscape', lm=2))
+    edge_m = mt('M_edge_steel', color=(0.12, 0.08, 0.06), rough=0.6, metal=0.6)
+    eg = []
+    for (a, b, cc_, dd) in beds:
+        for (ea, eb, ec, ed) in [(a, b - 0.006, cc_, b), (a, dd, cc_, dd + 0.006), (a - 0.006, b, a, dd), (cc_, b, cc_ + 0.006, dd)]:
+            eg.append(box('eg', ea, eb, -0.1, ec, ed, 0.005, edge_m, c))
+    out.append(tag(join(eg, 'garden_edges'), stage='landscape', lm=2))
 
     # ---------- muros do lote
     walls = [(-16.15, -26.0, -15.85, 26.0, 2.4), (15.85, -26.0, 16.15, 26.0, 2.4), (-16.15, 25.85, 16.15, 26.15, 2.4)]
-    wm = [box('muro', a, b, -0.1, cc_, dd, h, wall_m, c) for (a, b, cc_, dd, h) in walls]
+    wm = [box('muro', a, b, 0.22, cc_, dd, h, wall_m, c, bevel=0.006) for (a, b, cc_, dd, h) in walls]
     for (a, b, cc_, dd, h) in walls:
-        wm.append(box('muro_top', a - 0.03, b - (0.03 if dd - b < 1 else 0), h, cc_ + 0.03, dd + (0.03 if dd - b < 1 else 0), h + 0.05,
-                      M['concrete'], c))
+        ex = 0.02
+        wm.append(box('muro_soco', a - ex, b - ex, -0.1, cc_ + ex, dd + ex, 0.22, socle_m, c, bevel=0.006))
+        # capeamento com 4 cm de balanço e pingadeira (sulco escuro por baixo)
+        wm.append(box('muro_top', a - 0.04, b - 0.04, h, cc_ + 0.04, dd + 0.04, h + 0.05, M['concrete'], c, bevel=0.005))
+        # juntas verticais a cada 3 m nas duas faces
+        long_y = dd - b > cc_ - a
+        n0, n1 = (b, dd) if long_y else (a, cc_)
+        k = n0 + 3.0
+        while k < n1 - 0.5:
+            if long_y:
+                wm.append(box('junta', a - 0.004, k - 0.006, 0.22, cc_ + 0.004, k + 0.006, h, FU.F['ink'], c))
+            else:
+                wm.append(box('junta', k - 0.006, b - 0.004, 0.22, k + 0.006, dd + 0.004, h, FU.F['ink'], c))
+            k += 3.0
     out.append(tag(join(wm, 'site_walls'), stage='landscape', lm=2))
     # muro frontal baixo em pedra com o nome da casa
     fw = [box('mf', -15.85, -26.0, -0.1, -12.55, -25.7, 0.75, M['stone'], c),
@@ -188,19 +230,8 @@ def build_all(M):
     veg('island_tree_02', -13.6, 6.5, 0.8)
     veg('island_tree_02', 3.0, 22.5, 0.75)
     veg('jacaranda_tree', -14.0, -21.0, 0.7, 120)
-    for i in range(24):
-        y = -24 + i * 2.1
-        veg('searsia_lucida', -15.2 + random.uniform(-0.2, 0.3), y, random.uniform(0.9, 1.3))
-        veg('searsia_lucida', 15.2 + random.uniform(-0.3, 0.2), y + 1.0, random.uniform(0.9, 1.3))
-    for i in range(14):
-        veg('searsia_lucida', -14 + i * 2.1, 25.1 + random.uniform(-0.2, 0.2), random.uniform(1.0, 1.4))
     shrubs = ['shrub_02', 'shrub_02', 'shrub_03', 'shrub_04']
-    for i in range(18):
-        veg(random.choice(shrubs), random.uniform(1.0, 11.6), random.uniform(-17.9, -16.4), random.uniform(0.7, 1.1))
-    for i in range(10):
-        veg(random.choice(shrubs), random.uniform(12.4, 13.5), random.uniform(-15.5, -3.5), random.uniform(0.7, 1.0))
-    for i in range(12):
-        veg(random.choice(shrubs), random.uniform(-15.4, -12.6), random.uniform(-15.5, -2.5), random.uniform(0.7, 1.1))
+    # cinturão dos muros e canteiros da fachada: plantio em camadas (blender/planting.py)
     for i in range(10):
         a = math.radians(100 + i * 18)
         veg(random.choice(shrubs), cx + 3.7 * math.cos(a), cy + 3.7 * math.sin(a), random.uniform(0.8, 1.2))
@@ -209,6 +240,9 @@ def build_all(M):
     for (x, y) in [(-0.6, -20.5), (2.8, -23.4), (-13.5, -24.6)]:
         veg('fern_02', x, y, 1.4)
     veg('pachira_aquatica_01', -12.6, 1.6, 1.3)
+    FU.cleanup_ph()
+    import planting
+    VEG[:] = planting.generate(VEG)
     with open(os.path.join(lib.ROOT, 'blender', 'vegetation.json'), 'w') as fh:
         json.dump(VEG, fh)
     return out

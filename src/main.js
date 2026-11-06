@@ -119,6 +119,7 @@ async function boot() {
   let trans = null
   let userMood = false
   function setMood(name, byUser = true) {
+    quiet()
     if (!world.envs[name] || world.mood === name || trans) return
     userMood ||= byUser
     if (reduced) {
@@ -193,6 +194,7 @@ async function boot() {
 
   function enter(name) {
     current = name
+    quiet()
     document.body.classList.toggle('is-interactive', ['explore', 'details', 'custom'].includes(name))
     $$('.nav a').forEach((a) => a.classList.toggle('is-on', a.getAttribute('href') === '#' + sec[name]?.el.id))
     build.setActive(name === 'build')
@@ -418,7 +420,37 @@ async function boot() {
   document.body.appendChild(veil)
   let veilT = 0
   if (QS.has('fps')) fpsBadge.hidden = false
-  let slowT = 0
+  // Qualidade adaptativa. Mede o tempo de GPU por quadro (timer query), não o intervalo do rAF, que o vsync
+  // trava em 16,7/33 ms. Ignora 2,5 s depois de trocas de cena, clima ou perfil (compilação de shaders e
+  // decodificação de texturas não são incapacidade do hardware). Perfil escolhido pelo usuário (?q) só cai
+  // em instabilidade crítica (< 20 fps de GPU sustentado), com aviso na tela. No automático, também volta a subir.
+  const ORDER = ['performance', 'balanced', 'high', 'ultra']
+  const userQ = QS.has('q')
+  const autoTop = R.profileName
+  let slowT = 0,
+    fastT = 0,
+    quietUntil = performance.now() + 4000,
+    lastChange = 0
+  const quiet = (ms = 2500) => (quietUntil = Math.max(quietUntil, performance.now() + ms))
+  window.addEventListener('nx-quiet', () => quiet())
+  const toast = document.createElement('div')
+  toast.className = 'q-toast'
+  toast.setAttribute('role', 'status')
+  document.body.appendChild(toast)
+  function changeProfile(name, why) {
+    R.setProfile(name)
+    R.frames.length = 0
+    if (R.gpuMs) R.gpuMs.length = 0
+    slowT = fastT = 0
+    lastChange = performance.now()
+    quiet(3000)
+    markQ()
+    if (why) {
+      toast.textContent = why
+      toast.classList.add('is-on')
+      setTimeout(() => toast.classList.remove('is-on'), 6000)
+    }
+  }
 
   function frame(now) {
     requestAnimationFrame(frame)
@@ -566,18 +598,29 @@ async function boot() {
     // panéis editoriais
     for (const pn of panels) pn.el.classList.toggle('is-on', current === pn.sec && sec[pn.sec].p >= pn.at && sec[pn.sec].p < Math.min(1, pn.at + 0.42))
     const rendered = R.frame(now, active)
-    // ---- qualidade adaptativa: quedas persistentes reduzem o perfil sem recarregar
-    if (rendered) {
+    // ---- qualidade adaptativa (ver comentário acima)
+    if (rendered && now > quietUntil) {
       const st = R.stats(90)
-      if (st && st.avg > 26 && R.profileName !== 'performance') {
-        slowT += dt
-        if (slowT > 3) {
-          R.setProfile({ ultra: 'high', high: 'balanced' }[R.profileName] || 'performance')
-          R.frames.length = 0
-          slowT = 0
-          markQ()
-        }
-      } else slowT = Math.max(0, slowT - dt)
+      const g = R.gpuStats(90)
+      // custo do quadro: GPU medida quando disponível; sem timer query, o intervalo de CPU (menos confiável)
+      const cost = g && g.n >= 60 ? g.p50 : st && st.avg
+      const i = ORDER.indexOf(R.profileName)
+      if (cost) {
+        const crit = cost > 50 // < 20 fps sustentados
+        const slow = userQ ? crit : cost > 22 // < ~45 fps de capacidade
+        if (slow && i > 0) {
+          slowT += dt
+          if (slowT > (crit ? 4 : 5)) {
+            const to = ORDER[i - 1]
+            changeProfile(to, `Qualidade reduzida para ${PROFILES[to].label}: a placa de vídeo não sustentou ${PROFILES[R.profileName].label} (${(1000 / cost).toFixed(0)} fps).`)
+          }
+        } else slowT = Math.max(0, slowT - dt * 0.5)
+        // volta a subir (só no automático), com folga de 2× e sem oscilar
+        if (!userQ && i < ORDER.indexOf(autoTop) && cost < 8 && now - lastChange > 20000) {
+          fastT += dt
+          if (fastT > 6) changeProfile(ORDER[i + 1], `Qualidade restaurada para ${PROFILES[ORDER[i + 1]].label}.`)
+        } else fastT = 0
+      }
       if (!fpsBadge.hidden && now % 400 < 17 && st) fpsBadge.textContent = `${PROFILES[R.profileName].label}\n${st.fps.toFixed(0)} fps · ${st.avg.toFixed(1)} ms\np95 ${st.p95.toFixed(1)} ms · ${st.calls} draws`
     }
     if (!qMenu.hidden && now % 500 < 17) {
@@ -633,7 +676,13 @@ async function boot() {
     openDetail,
     setOption: (g, o) => inter.setOption(g, o),
     setMood: (m) => stage.moodsReady.then(() => setMood(m)),
-    frames: () => (R.frames.length = 0),
+    frames: () => {
+      R.frames.length = 0
+      if (R.gpuMs) R.gpuMs.length = 0
+    },
+    gpu: () => R.gpuStats(),
+    house,
+    canvas: () => ({ css: [innerWidth, innerHeight], buffer: [R.renderer.domElement.width, R.renderer.domElement.height], dpr: R.renderer.getPixelRatio(), msaa: R.composer.renderTarget1.samples, shadow: R.p.shadow, lm: R.p.lm, tex: R.p.tex, profile: R.profileName }),
   }
 }
 

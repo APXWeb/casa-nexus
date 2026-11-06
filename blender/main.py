@@ -39,17 +39,26 @@ if not opt('--only') or opt('--only') != 'arch':
 
 # UV em escala real para tudo que foi modelado aqui (modelos importados mantêm seus UVs)
 for o in bpy.data.objects:
-    if o.type == 'MESH' and not o.get('imported'):
+    if o.type == 'MESH' and not o.get('imported') and not o.get('uvok'):
+        lib.world_uv(o)
+
+# detalhamento arquitetônico (chanfros, rodapés, baguetes, rufos): depois dos UVs, que o chanfro interpola
+if not opt('--no-detail'):
+    import detail  # noqa
+    for o in detail.build_all(arch.M):
         lib.world_uv(o)
 
 with open(os.path.join(lib.ROOT, 'blender', 'plan.json'), 'w', encoding='utf8') as fh:
     fh.write(plan.as_json())
 
 if opt('--save'):
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(lib.ROOT, 'assets-src', 'casa_nexus.blend'))
+    name = opt('--save') if isinstance(opt('--save'), str) else 'casa_nexus.blend'
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(lib.ROOT, 'assets-src', name))
 
 if opt('--preview'):
     import preview  # noqa
+    if opt('--veg'):
+        preview.add_vegetation(grass=bool(opt('--grass')))
     preview.render_views(opt('--preview'), opt('--views', 'all'), int(opt('--samples', 48)))
 
 if opt('--bake'):

@@ -40,7 +40,9 @@ def load(asset, pick=None, decimate=None, rename=None):
             m = o.modifiers.new('d', 'DECIMATE')
             m.ratio = decimate
             lib.apply_mods(o)
-        o.name = (rename or asset) + ('_' + o.name.split('_')[-1] if len(meshes) > 1 else '')
+        parts = o.name.split('.')[0].split('_')
+        tag_ = parts[-2] if parts[-1].startswith('LOD') and len(parts) > 1 else parts[-1]
+        o.name = (rename or asset) + ('_' + tag_ if len(meshes) > 1 else '')
         o['veg'] = 1
         out.append(o)
     return out
@@ -51,6 +53,10 @@ keep += load('shrub_03', rename='shrub_03')
 keep += load('shrub_04', rename='shrub_04')
 keep += load('fern_02', rename='fern_02')
 keep += load('boulder_01', decimate=0.07, rename='boulder_01')
+# forrações floridas da frente dos canteiros (planting.py): só LOD0, reduzidas
+keep += load('flower_gazania', pick=['LOD0'], decimate=0.6, rename='flower_gazania')
+keep += load('crystalline_iceplant', pick=['LOD0'], decimate=0.6, rename='crystalline_iceplant')
+keep += load('periwinkle_plant', pick=['LOD0'], decimate=0.35, rename='periwinkle_plant')
 for o in keep:
     print('VEG', o.name, len(o.data.polygons))
 bpy.ops.object.select_all(action='DESELECT')

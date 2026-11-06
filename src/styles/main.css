@@ -238,3 +238,6 @@ body.no-gl #gl, body.no-gl #story, body.no-gl .tools, body.no-gl .nav { display:
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
 }
+/* aviso de troca automática de qualidade */
+.q-toast { position: fixed; z-index: 60; left: 50%; bottom: 24px; transform: translate(-50%, 12px); max-width: min(560px, 92vw); padding: 10px 16px; border-radius: 999px; background: rgba(16, 16, 16, 0.82); color: #f1ede6; font: 13px/1.4 var(--sans, system-ui), sans-serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease, transform 0.3s ease; backdrop-filter: blur(8px); }
+.q-toast.is-on { opacity: 1; transform: translate(-50%, 0); }

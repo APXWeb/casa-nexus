@@ -4,6 +4,11 @@ Cada atlas recebe dois bakes de irradiância difusa (sem a cor do material):
   - CÉU: mundo branco uniforme, sem lâmpadas → visibilidade do céu com rebatimentos (0..~1)
   - NOITE: mundo preto, luminárias acesas → iluminação artificial (RGB, HDR)
 Codificação final (PNG RGBA 8 bits): RGB = sqrt(noite / NIGHT_MAX), A = sqrt(céu / SKY_MAX).
+
+GI diurna (LM_PASSES inclui day/sunset): um atlas RGB por clima com a luz INDIRETA do sol e do céu reais
+(mesmo HDRI, mesma direção e intensidade do sol do site). É o rebatimento que faltava: luz do sol entrando
+pelos vãos e voltando do piso, sangramento de cor da madeira e do gramado. O sol direto continua dinâmico
+(sombra em tempo real), e o céu direto continua no canal A. Codificação RGBM 8 bits: RGB·M·DAY_MAX.
 """
 import bpy
 import bmesh
@@ -17,6 +22,13 @@ import plan as P
 
 NIGHT_MAX = 6.0
 SKY_MAX = 1.25
+DAY_MAX = 8.0
+# climas do site (src/engine/world.js MOODS + tools/skies.json): direção do sol (azimute a partir do norte,
+# elevação), cor, intensidade do sol e do ambiente
+MOODS = {
+    'day': dict(hdri='kloofendal_48d_partly_cloudy_puresky_2k.hdr', az=306, el=40, color=(1.0, 0.96, 0.9), sun=5.2, env=1.0),
+    'sunset': dict(hdri='belfast_sunset_puresky_2k.hdr', az=290, el=9, color=(1.0, 0.6, 0.32), sun=4.2, env=1.15),
+}
 OUT = os.path.join(lib.ROOT, 'assets-src', 'bake')
 PUB = os.path.join(lib.ROOT, 'public', 'assets')
 
@@ -178,6 +190,58 @@ def world(strength, color=(1, 1, 1)):
     bpy.context.scene.world = w
 
 
+def sun_dir_blender(az, el):
+    """Direção PARA o sol em coordenadas do Blender. No site: norte = -Z(three) = +Y(Blender)."""
+    a, e = math.radians(az), math.radians(el)
+    tx, ty, tz = math.sin(a) * math.cos(e), math.sin(e), -math.cos(a) * math.cos(e)  # three (Y para cima)
+    return (tx, -tz, ty)
+
+
+def day_world(mood):
+    """Mundo com o HDRI do clima, girado como no site (o ponto mais brilhante do HDR vai para o azimute do sol),
+    e um sol com a mesma direção, cor e intensidade do DirectionalLight do site."""
+    m = MOODS[mood]
+    w = bpy.data.worlds.get('BAKE_' + mood) or bpy.data.worlds.new('BAKE_' + mood)
+    w.use_nodes = True
+    nt = w.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new('ShaderNodeOutputWorld')
+    bg = nt.nodes.new('ShaderNodeBackground')
+    env = nt.nodes.new('ShaderNodeTexEnvironment')
+    img = bpy.data.images.load(os.path.join(lib.ROOT, 'assets-src', 'hdri', m['hdri']), check_existing=True)
+    env.image = img
+    # ponto mais brilhante do HDR (coluna u) → mesma rotação que world.js aplica com shiftEquirect
+    W, H = img.size
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(H, W, 4)
+    lum = px[..., 0] * 0.2126 + px[..., 1] * 0.7152 + px[..., 2] * 0.0722
+    yy, xx = np.unravel_index(np.argmax(lum), lum.shape)
+    u_hdr = (xx + 0.5) / W
+    # Cycles (direction_to_equirectangular): u = 0.5 - atan2(dir.y, dir.x)/(2π)
+    d = sun_dir_blender(m['az'], m['el'])
+    u_want = 0.5 - math.atan2(d[1], d[0]) / (2 * math.pi)
+    mp = nt.nodes.new('ShaderNodeMapping')
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    nt.links.new(tc.outputs['Generated'], mp.inputs['Vector'])
+    mp.inputs['Rotation'].default_value[2] = (u_want - u_hdr) * 2 * math.pi
+    nt.links.new(mp.outputs['Vector'], env.inputs['Vector'])
+    nt.links.new(env.outputs['Color'], bg.inputs['Color'])
+    bg.inputs['Strength'].default_value = m['env']
+    nt.links.new(bg.outputs['Background'], out.inputs['Surface'])
+    bpy.context.scene.world = w
+    sun = bpy.data.objects.get('BAKE_SUN')
+    if sun is None:
+        ld = bpy.data.lights.new('BAKE_SUN', 'SUN')
+        sun = bpy.data.objects.new('BAKE_SUN', ld)
+        bpy.context.scene.collection.objects.link(sun)
+    sun.data.energy = m['sun']
+    sun.data.color = m['color']
+    sun.data.angle = math.radians(0.6)
+    from mathutils import Vector
+    sun.rotation_euler = Vector(d).to_track_quat('Z', 'Y').to_euler()  # o sol ilumina ao longo de -Z local
+    sun.hide_render = False
+    return sun
+
+
 def make_lights(arch):
     c = lib.coll('bake_lights')
     made = []
@@ -231,15 +295,15 @@ def make_lights(arch):
     return made
 
 
-def do_bake(objs, img, samples, margin_px=12):
+def do_bake(objs, img, samples, margin_px=12, passes=('DIRECT', 'INDIRECT')):
     sc = bpy.context.scene
     sc.cycles.samples = samples
     sc.cycles.use_denoising = True
     sc.render.bake.use_selected_to_active = False
     sc.render.bake.margin = margin_px
     sc.render.bake.margin_type = 'EXTEND'
-    sc.render.bake.use_pass_direct = True
-    sc.render.bake.use_pass_indirect = True
+    sc.render.bake.use_pass_direct = 'DIRECT' in passes
+    sc.render.bake.use_pass_indirect = 'INDIRECT' in passes
     sc.render.bake.use_pass_color = False
     sc.cycles.bake_type = 'DIFFUSE'
     # o Cycles grava no mapa UV ativo: durante o bake, o ativo precisa ser o LM
@@ -251,7 +315,7 @@ def do_bake(objs, img, samples, margin_px=12):
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
     t = time.time()
-    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=margin_px,
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter=set(passes), margin=margin_px,
                         use_clear=True)
     print(f'  bake {img.name}: {time.time() - t:.1f}s', flush=True)
     for o in objs:
@@ -335,7 +399,9 @@ def run(arch, atlas_spec='auto'):
         groups[k].append(o)
         acc[k] += area(o)
     atlases = [(f'lm{i}', g, px) for i, g in enumerate(groups)] + [('lm_site', site, px)]
-    manifest = dict(night_max=NIGHT_MAX, sky_max=SKY_MAX, atlases=[])
+    passes = os.environ.get('LM_PASSES', 'sky,night,day,sunset').split(',')
+    day_passes = [p_ for p_ in passes if p_ in MOODS]
+    manifest = dict(night_max=NIGHT_MAX, sky_max=SKY_MAX, day_max=DAY_MAX, day=day_passes, atlases=[])
     for name, g, size in atlases:
         if not g:
             continue
@@ -358,21 +424,30 @@ def run(arch, atlas_spec='auto'):
         if not g:
             continue
         res = {}
-        for passname in ('sky', 'night'):
+        for passname in ('sky', 'night') + tuple(day_passes):
             img = bpy.data.images.new(f'{name}_{passname}', size, size, float_buffer=True, alpha=False)
             img.colorspace_settings.name = 'Non-Color'
             bake_materials(g, img, passname)
+            sun = bpy.data.objects.get('BAKE_SUN')
+            if sun:
+                sun.hide_render = True
             if passname == 'sky':
                 world(1.0)
                 set_emission(False)
                 for l in lights:
                     l.hide_render = True
-            else:
+            elif passname == 'night':
                 world(0.0)
                 set_emission(True)
                 for l in lights:
                     l.hide_render = False
-            do_bake(g, img, samples, margin_px=max(12, size * 12 // 2048))
+            else:
+                day_world(passname)
+                set_emission(False)
+                for l in lights:
+                    l.hide_render = True
+            do_bake(g, img, samples, margin_px=max(12, size * 12 // 2048),
+                    passes=('INDIRECT',) if passname in MOODS else ('DIRECT', 'INDIRECT'))
             restore_materials(g)
             raw = os.path.join(OUT, f'{name}_{passname}_raw.exr')
             img.filepath_raw = raw
@@ -389,6 +464,19 @@ def run(arch, atlas_spec='auto'):
         out.file_format = 'PNG'
         out.save()
         print('  salvo', out.filepath_raw)
+        for dp in day_passes:
+            # RGBM: M = max(rgb)/DAY_MAX quantizado para cima; RGB = rgb/(M·DAY_MAX)
+            rgb = np.clip(res[dp][..., 0:3] / DAY_MAX, 0, 1)
+            mm = np.clip(np.ceil(rgb.max(axis=2) * 255.0) / 255.0, 1 / 255.0, 1.0)
+            enc = np.concatenate([np.sqrt(rgb / mm[..., None]), mm[..., None]], axis=2)
+            o2 = bpy.data.images.new(f'{name}_{dp}_enc', size, size, alpha=True, float_buffer=False)
+            o2.colorspace_settings.name = 'Non-Color'
+            o2.alpha_mode = 'STRAIGHT'
+            o2.pixels.foreach_set(enc.astype(np.float32).ravel())
+            o2.filepath_raw = os.path.join(OUT, f'{name}_{dp}.png')
+            o2.file_format = 'PNG'
+            o2.save()
+            print('  salvo', o2.filepath_raw)
     bake_glass_transparent(False)
     for l in lights:
         bpy.data.objects.remove(l, do_unlink=True)

@@ -7,6 +7,7 @@ import os
 from mathutils import Vector, Matrix, Euler
 import lib
 from lib import box, cyl, rounded, coll, tag, join
+import upholstery as U
 
 F = {}
 M = None
@@ -17,14 +18,18 @@ def mats(Ma):
     global M
     M = Ma
     mt = lib.material
-    F['linen'] = mt('M_fab_linen', 'leather_white', tile=0.6, tint=(0.86, 0.82, 0.75), rough=0.95, normal=0.6)
-    F['taupe'] = mt('M_fab_taupe', 'leather_white', tile=0.6, tint=(0.5, 0.45, 0.4), rough=0.95, normal=0.6)
-    F['graphite_fab'] = mt('M_fab_graphite', 'leather_white', tile=0.6, tint=(0.24, 0.24, 0.25), rough=0.95, normal=0.6)
-    F['bed'] = mt('M_fab_bed', 'leather_white', tile=0.8, tint=(0.95, 0.94, 0.92), rough=0.95, normal=0.4)
-    F['throw'] = mt('M_fab_throw', 'leather_white', tile=0.5, tint=(0.42, 0.33, 0.26), rough=0.95, normal=0.8)
-    F['rug'] = mt('M_rug', 'leather_white', tile=0.35, tint=(0.62, 0.58, 0.53), rough=1.0, normal=1.0)
-    F['rug_dark'] = mt('M_rug_dark', 'leather_white', tile=0.35, tint=(0.3, 0.29, 0.28), rough=1.0, normal=1.0)
-    F['cognac'] = mt('M_leather_cognac', 'leather_white', tile=0.7, tint=(0.5, 0.28, 0.14), rough=0.55, normal=0.5)
+    # têxteis: tramas reais (variantes neutras geradas por tools/derive-tex.mjs) tingidas por peça
+    F['linen'] = mt('M_fab_linen', 'fab_weave', tile=0.45, tint=(0.88, 0.84, 0.77), rough=0.92, normal=0.8)
+    F['taupe'] = mt('M_fab_taupe', 'fab_boucle', tile=0.3, tint=(0.6, 0.54, 0.48), rough=0.95, normal=1.0)
+    F['graphite_fab'] = mt('M_fab_graphite', 'fab_weave', tile=0.45, tint=(0.3, 0.3, 0.31), rough=0.95, normal=0.8)
+    F['bed'] = mt('M_fab_bed', 'fab_jersey', tile=0.4, tint=(0.96, 0.95, 0.93), rough=0.9, normal=0.5)
+    F['throw'] = mt('M_fab_throw', 'fab_herring', tile=0.25, tint=(0.78, 0.6, 0.45), rough=0.95, normal=1.0)
+    F['rug'] = mt('M_rug', 'acg_carpet016', tile=1.0, tint=(0.97, 0.95, 0.92), rough=1.0, normal=1.0)
+    F['rug_dark'] = mt('M_rug_dark', 'acg_carpet016', tile=1.0, tint=(0.42, 0.4, 0.38), rough=1.0, normal=1.0)
+    F['cognac'] = mt('M_leather_cognac', 'brown_leather', tile=0.6, tint=(1.0, 0.82, 0.68), rough=0.5, normal=0.6)
+    F['outdoor'] = mt('M_fab_outdoor', 'fab_linen', tile=0.4, tint=(0.86, 0.84, 0.8), rough=0.92, normal=0.7)
+    F['teak'] = mt('M_teak', 'teak_veneer', tile=1.2, tint=(0.78, 0.66, 0.54), rough=0.62)
+    F['towel'] = mt('M_towel', 'fab_boucle', tile=0.2, tint=(0.9, 0.88, 0.84), rough=1.0, normal=1.0)
     F['graphite'] = mt('M_cab_graphite', color=(0.06, 0.06, 0.065), rough=0.55)
     F['lacquer'] = mt('M_lacquer_white', color=(0.84, 0.83, 0.81), rough=0.32)
     F['walnut'] = mt('M_walnut', 'american_walnut_veneer', tile=1.5, tint=(0.75, 0.62, 0.5))
@@ -37,8 +42,8 @@ def mats(Ma):
     F['mirror'] = mt('M_mirror', color=(0.92, 0.93, 0.93), rough=0.02, metal=1.0, kind='mirror')
     F['black_glass'] = mt('M_black_glass', color=(0.01, 0.01, 0.012), rough=0.06)
     F['screen'] = mt('M_screen', color=(0.005, 0.005, 0.006), rough=0.12)
-    F['curtain'] = mt('M_curtain', 'leather_white', tile=0.8, tint=(0.93, 0.91, 0.87), rough=0.95, alpha=0.6,
-                      normal=0.2, kind='curtain')
+    F['curtain'] = mt('M_curtain', 'fab_sheer', tile=0.6, tint=(0.95, 0.93, 0.89), rough=0.9, alpha=0.62,
+                      normal=0.3, kind='curtain')
     F['ink'] = mt('M_ink', color=(0.03, 0.03, 0.03), rough=0.6)
     F['concrete_bench'] = mt('M_concrete_furn', 'concrete_wall_008', tile=1.5, tint=(0.8, 0.8, 0.8))
     F['water_plane'] = mt('M_water', color=(0.1, 0.35, 0.38), rough=0.02, transmission=1.0, kind='water')
@@ -151,6 +156,7 @@ def ph(asset, x, y, z=0.0, rot=0.0, scale=1.0, c=None, name=None, bake=True, **p
 def cleanup_ph():
     for b in _ph_cache.values():
         bpy.data.objects.remove(b, do_unlink=True)
+    _ph_cache.clear()
 
 
 # ------------------------------------------------------------------ peças modeladas (origem no chão, frente -Y)
@@ -305,9 +311,10 @@ def kitchen(Mx):
     p.append(box('kback', x0, -9.85, 0.92, x0 + 0.02, -4.3, 1.05, F['white_marble']))
     # cuba e torneira sob a janela
     p.append(box('sink', -11.75, -7.6, 0.885, -11.36, -6.9, 0.921, M['steel']))
-    p.append(cyl('tap', -11.82, -7.25, 0.92, 1.22, 0.014, M['steel'], seg=12))
-    tap = box('tapb', -11.84, -7.27, 1.2, -11.55, -7.23, 1.225, M['steel'], bevel=0.008)
-    p.append(tap)
+    # torneira gourmet de bica alta (arco real) e cuba com fundo
+    p += gooseneck(-11.8, -7.25, 0.92, +1)
+    # gola: perfil de alumínio escuro embutido sob o tampo (portas sem puxador)
+    p.append(box('gola', x1 - 0.022, -9.6, 0.83, x1 + 0.001, -4.35, 0.865, F['ink']))
     # cooktop
     p.append(box('cook', -11.8, -5.6, 0.92, -11.3, -4.85, 0.928, F['black_glass']))
     for (yy, r) in [(-5.4, 0.09), (-5.05, 0.11)]:
@@ -342,8 +349,7 @@ def kitchen(Mx):
           box('iside', ix1 - 0.04, iy0 - 0.02, 0.0, ix1, iy1, 0.9, F['black_marble']),
           box('iled', ix0 + 0.05, iy1 - 0.27, 0.86, ix1 - 0.05, iy1 - 0.25, 0.875, M['light']),
           box('isink', -8.9, -7.75, 0.905, -8.3, -7.3, 0.941, M['steel'])]
-    r_.append(cyl('itap', -8.6, -7.85, 0.94, 1.28, 0.013, M['steel'], seg=12))
-    r_.append(box('itapb', -8.62, -7.86, 1.26, -8.58, -7.55, 1.283, M['steel'], bevel=0.008))
+    r_ += gooseneck(-8.6, -7.88, 0.94, +1, axis='y')
     out.append(place(r_, 0, 0, 0, 0, 'kitchen_island', c, stage='furniture', room='cozinha'))
     for i, x in enumerate([-9.55, -8.8, -8.05, -7.3]):
         out.append(place(bar_stool(F['cognac']), x, -6.25, 0.02, 180, f'stool_{i}', c, stage='furniture', room='cozinha'))
@@ -351,6 +357,26 @@ def kitchen(Mx):
     for i, x in enumerate([-9.3, -8.3, -7.3]):
         out.append(place(pendant(1.15, 0.1), x, -7.35, 3.18, 0, f'pend_ilha_{i}', c, stage='lights', room='cozinha'))
     return out
+
+
+def gooseneck(x, y, z, sgn=1, axis='x', h=0.42, reach=0.24):
+    """Torneira de bica alta: corpo cilíndrico e bica em arco (tubo), alavanca lateral."""
+    pts = []
+    for i in range(17):
+        t = i / 16
+        a = math.pi * t
+        u = reach / 2 * (1 - math.cos(a)) * sgn
+        zz = z + 0.12 + h * 0.82 + math.sin(a) * reach * 0.45 if t > 0 else z + 0.12
+        pts.append(Vector((x + u, y, zz)) if axis == 'x' else Vector((x, y + u, zz)))
+    pts.insert(0, Vector((x, y, z + 0.12)))
+    pts[1] = Vector((x, y, z + 0.12 + h * 0.82))
+    end = pts[-1]
+    pts.append(Vector((end.x, end.y, end.z - 0.06)))
+    body = cyl('tb', x, y, z, z + 0.12, 0.022, M['steel'], seg=24)
+    spout = U.tube('ts', pts, 0.011, M['steel'], sides=14)
+    lever = box('tl', x - 0.006, y - 0.006, z + 0.07, x + 0.006, y + 0.006, z + 0.14, M['steel'], bevel=0.004)
+    lever.data.transform(Matrix.Translation((0, 0.03, 0)))
+    return [body, spout, lever]
 
 
 def vanity(w, d=0.5, top=None, sinks=1, wood=None):
@@ -406,25 +432,9 @@ def shower(x0, y0, x1, y1, z0, glass_side, c):
 
 
 def curtain(x0, x1, y, z0, z1, c, axis='x', name='curtain'):
-    """Cortina de voil franzida (superfície ondulada)."""
-    bm = bmesh.new()
-    n = max(8, int(abs(x1 - x0) / 0.04))
-    rows = []
-    for zz in (z0, z1):
-        row = []
-        for i in range(n + 1):
-            u = x0 + (x1 - x0) * i / n
-            off = math.sin(i / n * (x1 - x0) / 0.22 * math.pi * 2) * 0.045
-            if axis == 'x':
-                row.append(bm.verts.new((u, y + off, zz)))
-            else:
-                row.append(bm.verts.new((y + off, u, zz)))
-        rows.append(row)
-    for i in range(n):
-        bm.faces.new([rows[0][i], rows[0][i + 1], rows[1][i + 1], rows[1][i]])
-    o = lib.mesh_obj(name, bm, F['curtain'], c)
-    for p in o.data.polygons:
-        p.use_smooth = True
+    """Cortina de voil com pregas irregulares (upholstery.curtain)."""
+    o = U.curtain(name, x0, x1, y, z0, z1, F['curtain'], axis=axis, seed=len(name))
+    lib.move_to(o, c)
     tag(o, lm=0, curtain=1, stage='furniture')
     return o
 
@@ -451,6 +461,41 @@ def rot_art(objs, axis_from_wall):
     return objs
 
 
+# ------------------------------------------------------------------ objetos de uso (vida nos ambientes)
+def dress(c, S):
+    """Objetos CC0 (Poly Haven) que dão escala e uso aos ambientes: arte, livros, utensílios, frutas."""
+    o = []
+    # cozinha: tábua, jarra e cesta com frutas na bancada; vaso e fruteira na ilha
+    o.append(ph('wooden_cutting_board', -11.55, -8.55, 0.92, 80, c=c, room='cozinha', **S))
+    o.append(ph('jug_01', -11.6, -9.25, 0.92, 0, scale=0.9, c=c, room='cozinha', **S))
+    o.append(ph('wicker_basket_02', -11.55, -5.95, 0.92, 15, scale=0.8, c=c, room='cozinha', **S))
+    o.append(ph('wooden_bowl_01', -7.2, -7.15, 0.94, 0, c=c, room='cozinha', **S))
+    for i, (dx, dy) in enumerate([(0.0, 0.0), (0.07, 0.05), (-0.06, 0.06)]):
+        o.append(ph('food_apple_01', -7.2 + dx, -7.15 + dy, 0.975 + (0.02 if i else 0), i * 70, c=c, room='cozinha', **S))
+    for i, (dx, dy) in enumerate([(0.0, 0.0), (0.06, -0.03)]):
+        o.append(ph('lemon', -11.5 + dx, -5.95 + dy, 1.0, i * 50, c=c, room='cozinha', **S))
+    o.append(ph('ceramic_vase_02', -9.6, -7.15, 0.94, 0, scale=0.9, c=c, room='cozinha', **S))
+    # jantar: fruteira no centro da mesa
+    o.append(ph('wooden_bowl_01', -1.4, -7.0, 0.78, 30, c=c, room='jantar', **S))
+    o.append(ph('food_apple_01', -1.4, -7.0, 0.815, 0, c=c, room='jantar', **S))
+    # sala: porta-retrato e livros no aparador, vaso na mesa de centro
+    o.append(ph('standing_picture_frame_01', 7.45, -10.62, 0.7, 100, c=c, room='estar', **S))
+    o.append(place(books_row(0.42, 0.22, 11), 6.95, -10.62, 0.7, 0, 'livros_aparador', c, room='estar', **S))
+    o.append(ph('ceramic_vase_02', 5.8, -8.2, 0.43, 0, scale=0.7, c=c, room='estar', **S))
+    # sala íntima: quadro na parede de pedra
+    o.append(ph('hanging_picture_frame_01', 1.365, -13.6, 1.45, 90, scale=1.6, c=c, room='tv', **S))
+    # suíte master e suíte 2: livros e vaso nos criados
+    for x in (-9.25, -6.35):
+        o.append(place(books_row(0.16, 0.035, int(x)), x - 0.05, -11.05, 4.07, 90, 'livros_criado', c, room='suite_master', **S))
+    o.append(ph('ceramic_vase_04', -6.25, -11.0, 4.07, 0, scale=0.7, c=c, room='suite_master', **S))
+    o.append(ph('ceramic_vase_04', 6.6, -10.6, 4.07, 0, scale=0.7, c=c, room='suite_2', **S))
+    # escritório: porta-retrato na mesa
+    o.append(ph('standing_picture_frame_01', 4.0, -16.3, 4.28, 110, c=c, room='escritorio', **S))
+    # varanda: vaso na mesinha
+    o.append(ph('ceramic_vase_02', -9.2, -3.0, 4.07, 0, scale=0.8, c=c, room='varanda', **S))
+    return o
+
+
 # ------------------------------------------------------------------ ambientes
 def build_all(Ma):
     mats(Ma)
@@ -458,10 +503,10 @@ def build_all(Ma):
     out = []
     S = dict(stage='furniture')
     # ---------- sala de estar
-    out.append(place(rug(5.2, 3.6, F['rug']), 6.4, -8.0, 0.02, 0, 'rug_estar', c, room='estar', **S))
-    out.append(place(l_sofa(F['linen']), 6.6, -6.4, 0.02, 0, 'sofa_estar', c, room='estar', **S))
-    out.append(place(coffee_table_block(1.3, 0.8, 0.32, F['travertine']), 6.0, -8.35, 0.032, 0, 'mesa_centro_a', c, room='estar', **S))
-    out.append(place(coffee_table_block(0.7, 0.7, 0.24, F['walnut']), 7.15, -8.75, 0.032, 12, 'mesa_centro_b', c, room='estar', **S))
+    out.append(place(U.rug(F, 5.2, 3.6, F['rug']), 6.4, -8.0, 0.02, 0, 'rug_estar', c, room='estar', **S))
+    out.append(place(U.l_sofa(F, F['linen']), 6.6, -6.4, 0.036, 0, 'sofa_estar', c, room='estar', **S))
+    out.append(ph('modern_coffee_table_01', 6.0, -8.35, 0.036, 90, c=c, name='mesa_centro_a', room='estar', **S))
+    out.append(ph('side_table_01', 7.45, -8.95, 0.036, 12, c=c, name='mesa_centro_b', room='estar', **S))
     out.append(ph('modern_arm_chair_01', 9.5, -7.6, 0.02, 100, c=c, room='estar', **S))
     out.append(ph('modern_arm_chair_01', 9.45, -8.85, 0.02, 80, c=c, room='estar', **S))
     out.append(ph('mid_century_lounge_chair', 10.6, -9.6, 0.02, -60, c=c, room='estar', **S))
@@ -473,8 +518,9 @@ def build_all(Ma):
     out.append(ph('ceramic_vase_01', 5.35, -10.62, 0.6, 0, c=c, room='estar', **S))
     out.append(ph('potted_plant_02', 3.9, -10.4, 0.02, 30, scale=1.2, c=c, bake=False, room='estar', **S))
     out.append(ph('pachira_aquatica_01', 11.35, -4.75, 0.02, 0, scale=1.0, c=c, bake=False, room='estar', **S))
-    out.append(ph('wooden_bowl_01', 6.0, -8.3, 0.352, 0, c=c, room='estar', **S))
-    out.append(place(books_row(0.4, 0.05, 3), 5.7, -8.5, 0.352, 90, 'livros_mesa', c, room='estar', **S))
+    out.append(ph('wooden_bowl_01', 6.25, -8.3, 0.43, 0, c=c, room='estar', **S))
+    out.append(place(books_row(0.4, 0.05, 3), 5.65, -8.4, 0.43, 90, 'livros_mesa', c, room='estar', **S))
+    out.append(ph('ceramic_vase_04', 7.45, -8.95, 0.59, 0, c=c, room='estar', **S))
     out.append(curtain(1.5, 2.4, -4.25, 0.02, 3.12, c, name='cortina_estar_a'))
     out.append(curtain(-10.6, -9.4, 11.75, 0.02, 3.12, c, axis='y', name='cortina_estar_b'))
     rp = []
@@ -490,10 +536,10 @@ def build_all(Ma):
     out.append(place(tbl, -1.9, -7.0, 0.02, 0, 'mesa_jantar', c, room='jantar', **S))
     k = 0
     for x in (-2.85, -1.9, -0.95):
-        out.append(place(dining_chair(F['taupe'], F['ink']), x, -7.72, 0.02, 0, f'cad_{k}', c, room='jantar', **S)); k += 1
-        out.append(place(dining_chair(F['taupe'], F['ink']), x, -6.28, 0.02, 180, f'cad_{k}', c, room='jantar', **S)); k += 1
-    out.append(place(dining_chair(F['taupe'], F['ink']), -3.72, -7.0, 0.02, -90, f'cad_{k}', c, room='jantar', **S))
-    out.append(place(dining_chair(F['taupe'], F['ink']), -0.08, -7.0, 0.02, 90, f'cad_{k+1}', c, room='jantar', **S))
+        out.append(place(U.dining_chair(F, F['taupe'], seed=k), x, -7.72, 0.02, 0, f'cad_{k}', c, room='jantar', **S)); k += 1
+        out.append(place(U.dining_chair(F, F['taupe'], seed=k), x, -6.28, 0.02, 180, f'cad_{k}', c, room='jantar', **S)); k += 1
+    out.append(place(U.dining_chair(F, F['taupe'], seed=k), -3.72, -7.0, 0.02, -90, f'cad_{k}', c, room='jantar', **S))
+    out.append(place(U.dining_chair(F, F['taupe'], seed=k + 1), -0.08, -7.0, 0.02, 90, f'cad_{k+1}', c, room='jantar', **S))
     out.append(place(linear_pendant(2.2, 0.85), -1.9, -7.0, 3.18, 0, 'pend_jantar', c, stage='lights', room='jantar'))
     out.append(ph('ceramic_vase_03', -2.1, -7.0, 0.78, 0, scale=0.6, c=c, room='jantar', **S))
     # aparador divisor hall/jantar
@@ -517,11 +563,11 @@ def build_all(Ma):
     lv.append(cyl('tp', 0, 0.2, 0.88, 1.12, 0.011, F['brass'], seg=12))
     lv.append(box('tpb', -0.011, 0.07, 1.1, 0.011, 0.2, 1.12, F['brass']))
     out.append(place(lv, -4.0, -15.6, 0.02, 0, 'lavabo_bancada', c, room='lavabo', **S))
-    out.append(place(wc(), -3.35, -14.5, 0.02, 90, 'wc_lavabo', c, room='lavabo', **S))
+    out.append(place(U.wc_suspended(F), -3.075, -14.5, 0.02, -90, 'wc_lavabo', c, room='lavabo', **S))
     # ---------- sala íntima (TV)
-    out.append(place(rug(3.6, 2.6, F['rug_dark']), 6.5, -13.4, 0.02, 0, 'rug_tv', c, room='tv', **S))
-    out.append(place(sofa_bench(3.2, 1.0, F['graphite_fab']), 6.5, -15.15, 0.02, 180, 'sofa_tv', c, room='tv', **S))
-    out.append(place(coffee_table_block(1.0, 0.6, 0.34, F['walnut']), 6.5, -13.5, 0.032, 0, 'mesa_tv', c, room='tv', **S))
+    out.append(place(U.rug(F, 3.6, 2.6, F['rug_dark']), 6.5, -13.4, 0.02, 0, 'rug_tv', c, room='tv', **S))
+    out.append(place(U.sofa(F, 3.2, 1.0, fab=F['graphite_fab'], seed=7), 6.5, -15.15, 0.036, 180, 'sofa_tv', c, room='tv', **S))
+    out.append(ph('modern_coffee_table_01', 6.5, -13.5, 0.036, 90, c=c, name='mesa_tv', room='tv', **S))
     out.append(place([box('tv', -1.0, 0, 0, 1.0, 0.04, 1.12, F['screen'])], 6.5, -11.12, 1.15, 180, 'tv_tv', c, room='tv', **S))
     out.append(ph('mid_century_lounge_chair', 3.3, -13.6, 0.02, -70, c=c, room='tv', **S))
     out.append(ph('calathea_orbifolia_01', 11.3, -15.3, 0.02, 0, scale=1.0, c=c, bake=False, room='tv', **S))
@@ -538,15 +584,15 @@ def build_all(Ma):
     out.append(place(gt, -6.6, -1.3, 0.02, 0, 'mesa_gourmet', c, room='gourmet', **S))
     for i, (x, y, r) in enumerate([(-7.5, -2.0, 0), (-6.6, -2.0, 0), (-5.7, -2.0, 0), (-7.5, -0.6, 180),
                                    (-6.6, -0.6, 180), (-5.7, -0.6, 180)]):
-        out.append(place(dining_chair(F['linen'], F['ink']), x, y, 0.02, r, f'cad_g_{i}', c, room='gourmet', **S))
+        out.append(place(U.dining_chair(F, F['outdoor'], seed=20 + i), x, y, 0.02, r, f'cad_g_{i}', c, room='gourmet', **S))
     out.append(place(linear_pendant(2.0, 0.9), -6.6, -1.3, 3.2, 0, 'pend_gourmet', c, stage='lights', room='gourmet'))
     # ---------- suíte master
-    out.append(place(rug(3.6, 3.0, F['rug']), -7.8, -9.5, 3.52, 0, 'rug_master', c, room='suite_master', **S))
-    out.append(place(headboard_wall(4.2, 1.25, F['taupe']), -7.8, -11.43, 3.52, 0, 'cabeceira_master', c, room='suite_master', **S))
+    out.append(place(U.rug(F, 3.6, 3.0, F['rug']), -7.8, -9.5, 3.52, 0, 'rug_master', c, room='suite_master', **S))
+    out.append(place(U.headboard(F, 4.2, 1.25, F['taupe']), -7.8, -11.43, 3.52, 0, 'cabeceira_master', c, room='suite_master', **S))
     out.append(place([box('pw', -2.6, 0, 0, 2.6, 0.03, 2.75, F['walnut'])], -7.8, -11.45, 3.52, 0, 'painel_master', c, room='suite_master', **S))
-    out.append(place(bed(1.95), -7.8, -11.33, 3.52, 180, 'cama_master', c, room='suite_master', **S))
+    out.append(place(U.bed(F, 1.95, seed=1), -7.8, -11.33, 3.536, 180, 'cama_master', c, room='suite_master', **S))
     for x in (-9.25, -6.35):
-        out.append(place(nightstand(F['walnut']), x, -11.1, 3.52, 0, 'criado', c, room='suite_master', **S))
+        out.append(ph('side_table_01', x, -11.05, 3.52, 0, c=c, name='criado', room='suite_master', **S))
         out.append(place(pendant(1.95, 0.09), x, -11.05, 6.28, 0, 'pend_master', c, stage='lights', room='suite_master'))
     benchm = [rounded('bm', -0.75, -0.22, 0.32, 0.75, 0.22, 0.46, 0.04, F['cognac'], seg=3),
               box('bml', -0.7, -0.18, 0, -0.67, 0.18, 0.32, F['brass']), box('bml', 0.67, -0.18, 0, 0.7, 0.18, 0.32, F['brass'])]
@@ -566,25 +612,25 @@ def build_all(Ma):
     out.append(place(bathtub(), -10.0, -16.55, 3.52, 0, 'banheira', c, room='banho_master', **S))
     out.append(place(vanity(2.4, sinks=2), -11.0, -11.66, 3.52, 180, 'bancada_master', c, room='banho_master', **S))
     out += shower(-9.3, -13.4, -7.6, -11.65, 3.52, 'x0', c)
-    out.append(place(wc(), -7.62, -16.4, 3.52, 90, 'wc_master', c, room='banho_master', **S))
+    out.append(place(U.wc_suspended(F), -7.575, -16.4, 3.52, -90, 'wc_master', c, room='banho_master', **S))
     out.append(ph('potted_plant_04', -12.1, -16.7, 3.52, 0, c=c, bake=False, room='banho_master', **S))
     # ---------- suíte 2
-    out.append(place(rug(2.8, 2.4, F['rug']), 5.4, -9.2, 3.52, 0, 'rug_s2', c, room='suite_2', **S))
-    out.append(place(headboard_wall(3.0, 1.1, F['linen']), 5.4, -10.93, 3.52, 0, 'cabeceira_s2', c, room='suite_2', **S))
-    out.append(place(bed(1.6), 5.4, -10.83, 3.52, 180, 'cama_s2', c, room='suite_2', **S))
+    out.append(place(U.rug(F, 2.8, 2.4, F['rug']), 5.4, -9.2, 3.52, 0, 'rug_s2', c, room='suite_2', **S))
+    out.append(place(U.headboard(F, 3.0, 1.1, F['linen'], seed=4), 5.4, -10.93, 3.52, 0, 'cabeceira_s2', c, room='suite_2', **S))
+    out.append(place(U.bed(F, 1.6, seed=2), 5.4, -10.83, 3.536, 180, 'cama_s2', c, room='suite_2', **S))
     for x in (4.2, 6.6):
-        out.append(place(nightstand(F['oak']), x, -10.6, 3.52, 0, 'criado2', c, room='suite_2', **S))
+        out.append(ph('side_table_01', x, -10.6, 3.52, 0, c=c, name='criado2', room='suite_2', **S))
     out.append(ph('modern_arm_chair_01', 7.7, -7.0, 3.52, 220, c=c, room='suite_2', **S))
     out.append(curtain(7.2, 8.1, -6.25, 3.52, 6.22, c, name='cortina_s2'))
     out.append(place(wardrobe(3.1), 2.85, -13.45, 3.52, 0, 'armario_s2', c, room='closet_2', **S))
     out.append(place(vanity(1.6), 6.0, -11.15, 3.52, 180, 'bancada_s2', c, room='banho_2', **S))
     out += shower(7.3, -13.5, 8.42, -11.1, 3.52, 'x0', c)
-    out.append(place(wc(), 5.2, -13.48, 3.52, 0, 'wc_s2', c, room='banho_2', **S))
+    out.append(place(U.wc_suspended(F), 5.2, -13.525, 3.52, 180, 'wc_s2', c, room='banho_2', **S))
     # ---------- escritório
     desk = [rounded('dt', -0.9, -0.38, 0.73, 0.9, 0.38, 0.76, 0.006, F['oak'], seg=2),
             box('dl', -0.85, -0.33, 0, -0.82, 0.33, 0.73, F['ink']), box('dl', 0.82, -0.33, 0, 0.85, 0.33, 0.73, F['ink'])]
     out.append(place(desk, 4.6, -16.2, 3.52, 0, 'mesa_escritorio', c, room='escritorio', **S))
-    out.append(place(dining_chair(F['cognac'], F['ink']), 4.6, -15.6, 3.52, 180, 'cadeira_escritorio', c, room='escritorio', **S))
+    out.append(place(U.dining_chair(F, F['cognac'], seed=40), 4.6, -15.6, 3.52, 180, 'cadeira_escritorio', c, room='escritorio', **S))
     out.append(ph('desk_lamp_arm_01', 5.3, -16.35, 4.28, 200, c=c, room='escritorio', **S))
     shelf = [box('sh', -2.4, -0.34, 0, 2.4, 0, 0.06, F['walnut'])]
     for zz in (0.7, 1.15, 1.6, 2.05, 2.5):
@@ -603,6 +649,9 @@ def build_all(Ma):
     # ---------- varanda
     for i, x in enumerate([-10.0, -8.4]):
         out.append(ph('modern_arm_chair_01', x, -3.4, 3.52, 180 + (i * 2 - 1) * 15, c=c, room='varanda', **S))
-    out.append(place(coffee_table_block(0.6, 0.6, 0.4, F['travertine']), -9.2, -3.0, 3.52, 0, 'mesa_varanda', c, room='varanda', **S))
+    out.append(ph('side_table_01', -9.2, -3.0, 3.52, 0, c=c, name='mesa_varanda', room='varanda', **S))
+    out.append(place(U.towel(F, 0.55, 1.0, seed=1), -8.6, -17.075, 3.52, 180, 'toalha_master', c, room='banho_master', **S))
+    out.append(place(U.towel(F, 0.45, 0.9, seed=2), 6.7, -13.525, 3.52, 180, 'toalha_s2', c, room='banho_2', **S))
+    out += dress(c, S)
     cleanup_ph()
     return out

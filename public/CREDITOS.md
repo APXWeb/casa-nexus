@@ -59,6 +59,34 @@ Todos os recursos abaixo vêm do [Poly Haven](https://polyhaven.com) sob licenç
 | Wood Floor | Dimitrios Savva | https://polyhaven.com/a/wood_floor |
 | Wood Floor Deck | Dimitrios Savva | https://polyhaven.com/a/wood_floor_deck |
 | Wooden Bowl 01 | Oliver Harries | https://polyhaven.com/a/wooden_bowl_01 |
+| Terlenka | colormass, Rico Cilliers | https://polyhaven.com/a/terlenka |
+| Cotton Jersey | colormass, Rico Cilliers | https://polyhaven.com/a/cotton_jersey |
+| Curly Teddy Natural | colormass, Rico Cilliers | https://polyhaven.com/a/curly_teddy_natural |
+| Crepe Georgette | colormass, Rico Cilliers | https://polyhaven.com/a/crepe_georgette |
+| Poly Wool Herringbone | colormass, Rico Cilliers | https://polyhaven.com/a/poly_wool_herringbone |
+| Brown Leather | Rob Tuytel | https://polyhaven.com/a/brown_leather |
+| Wood Textured Concrete | Dimitrios Savva | https://polyhaven.com/a/wood_textured_concrete |
+| Teak Veneer | Jenelle van Heerden | https://polyhaven.com/a/teak_veneer |
+| Modern Coffee Table 01 | Amin | https://polyhaven.com/a/modern_coffee_table_01 |
+| Side Table 01 | James Ray Cock | https://polyhaven.com/a/side_table_01 |
+| Hanging Picture Frame 01 | James Ray Cock | https://polyhaven.com/a/hanging_picture_frame_01 |
+| Standing Picture Frame 01 | James Ray Cock | https://polyhaven.com/a/standing_picture_frame_01 |
+| Ceramic Vase 02 | James Ray Cock | https://polyhaven.com/a/ceramic_vase_02 |
+| Ceramic Vase 04 | James Ray Cock | https://polyhaven.com/a/ceramic_vase_04 |
+| Wooden Cutting Board | Kuutti Siitonen | https://polyhaven.com/a/wooden_cutting_board |
+| Jug 01 | Kuutti Siitonen | https://polyhaven.com/a/jug_01 |
+| Wicker Basket 02 | Kuutti Siitonen | https://polyhaven.com/a/wicker_basket_02 |
+| Food Apple 01 | Oliver Harries | https://polyhaven.com/a/food_apple_01 |
+| Lemon | Kuutti Siitonen | https://polyhaven.com/a/lemon |
+| Periwinkle Plant | Amal Kumar | https://polyhaven.com/a/periwinkle_plant |
+| Flower Gazania | James Ray Cock, Jenelle van Heerden | https://polyhaven.com/a/flower_gazania |
+| Crystalline Iceplant | James Ray Cock, Jenelle van Heerden | https://polyhaven.com/a/crystalline_iceplant |
+
+Os tecidos `fab_*` do mobiliário são variantes neutras (dessaturadas e com brilho normalizado por `tools/derive-tex.mjs`) das texturas de tecido acima e do ambientCG.
+
+### ambientCG
+
+[ambientCG](https://ambientcg.com) — licença **CC0 1.0**: Carpet 016 (tapetes) e Fabric 045 (base da trama de linho dos estofados).
 
 ## Tipografia
 

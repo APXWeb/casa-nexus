@@ -32,18 +32,40 @@ export class House {
     const man = await (await fetch(BASE + 'lm/manifest.json')).json()
     this.lmManifest = man
     const tl = new THREE.TextureLoader()
+    const get = async (file) => {
+      const t = await tl.loadAsync(BASE + 'lm/' + file)
+      t.flipY = false
+      t.colorSpace = THREE.NoColorSpace
+      t.generateMipmaps = true
+      t.minFilter = THREE.LinearMipmapLinearFilter
+      t.magFilter = THREE.LinearFilter
+      t.anisotropy = 8
+      return t
+    }
+    const suf = (a) => (px >= 4096 && a.has4k ? '_4k' : px <= 1024 ? '_1k' : '')
+    // GI diurna é luz indireta (baixa frequência): uma resolução abaixo da noturna basta (Ultra 2k, demais 1k).
+    // O atlas do dia entra na carga inicial; o do pôr do sol vem depois, em segundo plano (até lá usa o do dia).
+    const daySuf = px >= 4096 ? '' : '_1k'
+    const days = man.day || []
+    this.lmDay = {}
+    this.lmMats = {}
     await Promise.all(
-      man.atlases.map(async (a) => {
-        const t = await tl.loadAsync(BASE + `lm/${a.name}${px >= 4096 && a.has4k ? '_4k' : px <= 1024 ? '_1k' : ''}.webp`)
-        t.flipY = false
-        t.colorSpace = THREE.NoColorSpace
-        t.generateMipmaps = true
-        t.minFilter = THREE.LinearMipmapLinearFilter
-        t.magFilter = THREE.LinearFilter
-        t.anisotropy = 4
-        this.lm[a.name] = t
-      }),
+      man.atlases.flatMap((a) => [
+        get(`${a.name}${suf(a)}.webp`).then((t) => (this.lm[a.name] = t)),
+        ...days.slice(0, 1).map((d) => get(`${a.name}_${d}${daySuf}.webp`).then((t) => ((this.lmDay[a.name] ||= {})[d] = t))),
+      ]),
     )
+    this.lmLater = () =>
+      Promise.all(
+        man.atlases.flatMap((a) =>
+          days.slice(1).map((d) =>
+            get(`${a.name}_${d}${daySuf}.webp`).then((t) => {
+              this.lmDay[a.name][d] = t
+              for (const m of this.lmMats[a.name] || []) if (m.userData.lm?.lmDayB) m.userData.lm.lmDayB.value = t
+            }),
+          ),
+        ),
+      )
   }
 
   async load(loader, lmPx = 2048) {
@@ -56,6 +78,7 @@ export class House {
     this.setup(props.scene, true)
     this.root.add(arch.scene, props.scene)
     this.root.updateMatrixWorld(true)
+    this.lmLater?.().catch((e) => console.warn('GI do pôr do sol indisponível', e))
     return this
   }
 
@@ -68,8 +91,11 @@ export class House {
       const ex = Object.keys(o.userData).length ? o.userData : { ...(o.parent?.userData || {}) }
       o.userData = ex
       o.castShadow = !ex.glass && !ex.water && !ex.curtain && !ex.emissive
-      o.receiveShadow = !ex.glass && !ex.emissive
-      const atlas = ex.lm_atlas
+      o.receiveShadow = !ex.glass && !ex.emissive && !ex.water // a sombra cai no fundo da piscina, não na superfície
+      // cadeiras de jantar/gourmet: encostos finos e curvos ficaram com poucos texels no atlas (manchas escuras);
+      // usam a luz constante de interior até o próximo bake dar a elas mais resolução
+      const noLm = /^cad_(\d|g_)/.test(ex.name || o.name)
+      const atlas = noLm ? null : ex.lm_atlas
       const mats = Array.isArray(o.material) ? o.material : [o.material]
       const out = mats.map((m) => {
         const key = m.name + '|' + (atlas || '-') + '|' + (ex.room ? 'in' : 'out')
@@ -81,15 +107,21 @@ export class House {
           nm = buildMaterial(m, m.userData || {})
         }
         if (!nm.userData.lm && !(nm.transparent && nm.premultipliedAlpha)) {
-          const indoor = !!ex.room && !['deck', 'gourmet', 'varanda', 'jardim', 'acesso'].includes(ex.room)
+          // cortinas não têm atlas nem cômodo: são internas (sem isso recebem céu pleno e brilham à noite)
+          const indoor = !!ex.curtain || (!!ex.room && !['deck', 'gourmet', 'varanda', 'jardim', 'acesso'].includes(ex.room))
+          const covered = noLm && !indoor // gourmet: sob a cobertura, céu parcial
           patchLightmap(nm, {
             tex: atlas ? this.lm[atlas] : null,
+            dayA: atlas ? this.lmDay[atlas]?.day : null,
+            dayB: atlas ? this.lmDay[atlas]?.sunset : null,
+            dayMax: man.day_max,
             skyMax: man.sky_max,
             nightMax: man.night_max,
-            constOcc: indoor ? 0.28 : 1,
+            constOcc: indoor ? 0.28 : covered ? 0.5 : 1,
             constNight: indoor ? 0x3a2a1c : 0x000000,
           })
         }
+        if (atlas && nm.userData.lm) (this.lmMats[atlas] ||= []).push(nm)
         if (nm.userData.isLamp) this.lamps.push(nm)
         matCache.set(key, nm)
         return nm

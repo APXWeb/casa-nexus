@@ -2,6 +2,7 @@
 // modelos de fotogrametria CC0) — iluminação PBR real (IBL + sol + sombras) com normais por pixel.
 import * as THREE from 'three'
 import { terrainHeight } from './terrain.js'
+import { createGrass } from './grass.js'
 
 const BASE = import.meta.env.BASE_URL + 'assets/'
 
@@ -170,6 +171,7 @@ export class Vegetation {
           const m = o.material
           if (m.map) {
             m.alphaTest = 0.5
+            m.alphaToCoverage = true
             m.transparent = false
             m.side = THREE.DoubleSide
             m.map.anisotropy = 8
@@ -281,6 +283,8 @@ export class Vegetation {
         else sp.mesh = im
       }
     }
+    // gramado de lâminas perto da câmera (só high/ultra); cresce junto com o paisagismo da construção
+    this.grass = createGrass(this.scene, this.lotGrow)
   }
 }
 
@@ -291,11 +295,12 @@ export async function plantMeshes(scene, loader, lotList, density = 1) {
   gltf.scene.traverse((o) => {
     if (!o.isMesh) return
     const fam = o.name.replace(/_[a-z]$/, '').replace(/_\d+$/, (m) => m) // shrub_02_a → shrub_02
-    const key = o.name.match(/^(shrub_0\d|fern_02|boulder_01)/)?.[1] || fam
+    const key = o.name.match(/^(shrub_0\d|fern_02|boulder_01|flower_gazania|crystalline_iceplant|periwinkle_plant)/)?.[1] || fam
     ;(protos[key] ||= []).push(o)
     const m = o.material
     if (m.map) {
       m.alphaTest = 0.5
+      m.alphaToCoverage = true
       m.transparent = false
       m.side = THREE.DoubleSide
       m.map.anisotropy = 4

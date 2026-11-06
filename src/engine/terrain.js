@@ -100,7 +100,8 @@ export function buildTerrain(scene, texLoader, base) {
     for (let j = 0; j < SEGS; j++) {
       const a = i * (SEGS + 1) + j,
         b = a + SEGS + 1
-      idx.push(a, b, a + 1, b, b + 1, a + 1)
+      // anti-horário visto de cima (normal para +Y): na ordem inversa o chão era descartado como face traseira
+      idx.push(a, a + 1, b, b, a + 1, b + 1)
     }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
